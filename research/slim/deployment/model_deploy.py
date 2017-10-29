@@ -103,7 +103,8 @@ import collections
 
 import tensorflow as tf
 
-from tensorflow.python.eager import context
+# jj: module not found eager with tf 1.3.0
+# from tensorflow.python.eager import context
 
 slim = tf.contrib.slim
 
@@ -347,9 +348,10 @@ def deploy(config,
   Raises:
     RuntimeError: If eager execution is enabled.
   """
-  if context.in_eager_mode():
-    raise RuntimeError(
-        'slim.deploy is not supported when eager execution is enabled.')
+  # jj: comment out eager 
+  # if context.in_eager_mode():
+  #   raise RuntimeError(
+  #       'slim.deploy is not supported when eager execution is enabled.')
 
   # Gather initial summaries.
   summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))

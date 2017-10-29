@@ -1,26 +1,4 @@
-# Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-r"""Downloads and converts Flowers data to TFRecords of TF-Example protos.
-
-This module downloads the Flowers data, uncompresses it, reads the files
-that make up the Flowers data and creates two TFRecord datasets: one for train
-and one for test. Each TFRecord dataset is comprised of a set of TF-Example
-protocol buffers, each of which contain a single image and label.
-
-The script should take about a minute to run.
-
+r"""Converts Munich data to TFRecords of TF-Example protos.
 """
 
 from __future__ import absolute_import
@@ -35,12 +13,6 @@ import sys
 import tensorflow as tf
 
 from datasets import dataset_utils
-
-# The URL where the Flowers data can be downloaded.
-_DATA_URL = 'http://download.tensorflow.org/example_images/flower_photos.tgz'
-
-# The number of images in the validation set.
-_NUM_VALIDATION = 350
 
 # Seed for repeatability.
 _RANDOM_SEED = 0
@@ -80,7 +52,7 @@ def _get_filenames_and_classes(dataset_dir):
     A list of image file paths, relative to `dataset_dir` and the list of
     subdirectories, representing class names.
   """
-  flower_root = os.path.join(dataset_dir, 'flower_photos')
+  flower_root = os.path.join(dataset_dir, 'photos')
   directories = []
   class_names = []
   for filename in os.listdir(flower_root):
@@ -99,7 +71,7 @@ def _get_filenames_and_classes(dataset_dir):
 
 
 def _get_dataset_filename(dataset_dir, split_name, shard_id):
-  output_filename = 'flowers_%s_%05d-of-%05d.tfrecord' % (
+  output_filename = 'munich_%s_%05d-of-%05d.tfrecord' % (
       split_name, shard_id, _NUM_SHARDS)
   return os.path.join(dataset_dir, output_filename)
 
@@ -114,7 +86,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
       (integers).
     dataset_dir: The directory where the converted datasets are stored.
   """
-  assert split_name in ['train', 'validation']
+  assert split_name in ['train', 'validation', 'test']
 
   num_per_shard = int(math.ceil(len(filenames) / float(_NUM_SHARDS)))
 
@@ -150,20 +122,6 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
   sys.stdout.flush()
 
 
-def _clean_up_temporary_files(dataset_dir):
-  """Removes temporary files used to create the dataset.
-
-  Args:
-    dataset_dir: The directory where the temporary files are stored.
-  """
-  filename = _DATA_URL.split('/')[-1]
-  filepath = os.path.join(dataset_dir, filename)
-  tf.gfile.Remove(filepath)
-
-  tmp_dir = os.path.join(dataset_dir, 'flower_photos')
-  tf.gfile.DeleteRecursively(tmp_dir)
-
-
 def _dataset_exists(dataset_dir):
   for split_name in ['train', 'validation']:
     for shard_id in range(_NUM_SHARDS):
@@ -187,25 +145,35 @@ def run(dataset_dir):
     print('Dataset files already exist. Exiting without re-creating them.')
     return
 
-  dataset_utils.download_and_uncompress_tarball(_DATA_URL, dataset_dir)
   photo_filenames, class_names = _get_filenames_and_classes(dataset_dir)
   class_names_to_ids = dict(zip(class_names, range(len(class_names))))
 
   # Divide into train and test:
   random.seed(_RANDOM_SEED)
   random.shuffle(photo_filenames)
-  training_filenames = photo_filenames[_NUM_VALIDATION:]
-  validation_filenames = photo_filenames[:_NUM_VALIDATION]
 
-  # First, convert the training and validation sets.
-  _convert_dataset('train', training_filenames, class_names_to_ids,
-                   dataset_dir)
-  _convert_dataset('validation', validation_filenames, class_names_to_ids,
-                   dataset_dir)
+  # jj: infer train or test mode from the name of dataset_dir
+  if 'train' in dataset_dir:
+    _num_validation = int(len(photo_filenames) * 0.1)
+    training_filenames = photo_filenames[_num_validation:]
+    validation_filenames = photo_filenames[:_num_validation]
+    _convert_dataset('train', training_filenames, class_names_to_ids,
+                     dataset_dir)
+    _convert_dataset('validation', validation_filenames, class_names_to_ids,
+                     dataset_dir)
+  elif 'test' in dataset_dir:
+    test_filenames = photo_filenames[:]
+    _convert_dataset('test', test_filenames, class_names_to_ids,
+                     dataset_dir)
+  else:
+    raise ValueError(("Failed to infer 'train' or 'test' mode "
+                      "from dataset_dir: {}. Please use the word "
+                      "'train' or 'test' in naming your dataset_dir,"
+                      "so that I can infer which mode you want to "
+                      "convert the data").format(dataset_dir))
 
   # Finally, write the labels file:
   labels_to_class_names = dict(zip(range(len(class_names)), class_names))
   dataset_utils.write_label_file(labels_to_class_names, dataset_dir)
 
-  # _clean_up_temporary_files(dataset_dir)
-  print('\nFinished converting the Flowers dataset!')
+  print('\nFinished converting the munich dataset!')
