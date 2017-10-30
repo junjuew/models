@@ -123,7 +123,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
 
 
 def _dataset_exists(dataset_dir):
-  for split_name in ['train', 'validation']:
+  for split_name in ['train', 'validation', 'test']:
     for shard_id in range(_NUM_SHARDS):
       output_filename = _get_dataset_filename(
           dataset_dir, split_name, shard_id)
@@ -152,8 +152,10 @@ def run(dataset_dir):
   random.seed(_RANDOM_SEED)
   random.shuffle(photo_filenames)
 
+  dataset_basename = os.path.basename(dataset_dir)
   # jj: infer train or test mode from the name of dataset_dir
-  if 'train' in dataset_dir:
+  if 'train' in dataset_basename:
+    print('create train files')
     _num_validation = int(len(photo_filenames) * 0.1)
     training_filenames = photo_filenames[_num_validation:]
     validation_filenames = photo_filenames[:_num_validation]
@@ -161,7 +163,8 @@ def run(dataset_dir):
                      dataset_dir)
     _convert_dataset('validation', validation_filenames, class_names_to_ids,
                      dataset_dir)
-  elif 'test' in dataset_dir:
+  elif 'test' in dataset_basename:
+    print('create test files')
     test_filenames = photo_filenames[:]
     _convert_dataset('test', test_filenames, class_names_to_ids,
                      dataset_dir)
