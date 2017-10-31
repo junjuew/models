@@ -67,7 +67,7 @@ python eval_image_classifier.py \
   --dataset_dir=${DATASET_DIR} \
   --model_name=${MODEL_NAME} 2>&1| tee ${TRAIN_DIR}/eval_last_layer.log
 
-# Fine-tune all the new layers for 1000 steps.
+# Fine-tune all layers for 1000 steps.
 python train_image_classifier.py \
   --train_dir=${TRAIN_DIR}/all \
   --dataset_name=munich \
