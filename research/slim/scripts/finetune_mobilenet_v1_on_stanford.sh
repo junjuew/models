@@ -72,7 +72,7 @@ for ckpt_step in $(seq 1 10); do
                --learning_rate_decay_type=fixed \
                --save_interval_secs=360000 \
                --save_summaries_secs=360000 \
-a               --log_every_n_steps=10 \
+               --log_every_n_steps=10 \
                --optimizer=rmsprop \
                --weight_decay=0.00004 2>&1| tee ${TRAIN_DIR}/train_last_layer_${cur_step}.log
     else
@@ -100,7 +100,7 @@ a               --log_every_n_steps=10 \
     # # Run evaluation.
     python eval_image_classifier.py \
            --checkpoint_path=${TRAIN_DIR}/${cur_step} \
-           --eval_dir=${TRAIN_DIR} \
+           --eval_dir=${TRAIN_DIR}/${cur_step} \
            --dataset_name=munich \
            --dataset_split_name=validation \
            --dataset_dir=${DATASET_DIR} \
@@ -109,7 +109,7 @@ a               --log_every_n_steps=10 \
     # Run evaluation on test data only
     python eval_image_classifier.py \
            --checkpoint_path=${TRAIN_DIR}/${cur_step} \
-           --eval_dir=${TEST_DIR} \
+           --eval_dir=${TEST_DIR}/${cur_step} \
            --dataset_name=munich \
            --dataset_split_name=test \
            --dataset_dir=${TEST_DATASET_DIR} \
@@ -164,7 +164,7 @@ for ckpt_step in $(seq 1 10); do
     # Run evaluation.
     python eval_image_classifier.py \
            --checkpoint_path=${TRAIN_DIR}/all_${cur_step} \
-           --eval_dir=${TRAIN_DIR}/all \
+           --eval_dir=${TRAIN_DIR}/all_${cur_step} \
            --dataset_name=munich \
            --dataset_split_name=validation \
            --dataset_dir=${DATASET_DIR} \
@@ -173,20 +173,9 @@ for ckpt_step in $(seq 1 10); do
     # Run evaluation on test data only
     python eval_image_classifier.py \
            --checkpoint_path=${TRAIN_DIR}/all_${cur_step} \
-           --eval_dir=${TEST_DIR} \
+           --eval_dir=${TEST_DIR}/all_${cur_step} \
            --dataset_name=munich \
            --dataset_split_name=test \
            --dataset_dir=${TEST_DATASET_DIR} \
            --model_name=${MODEL_NAME} 2>&1| tee ${TEST_DIR}/test_${cur_step}.log
 done
-
-
-# rename model file
-    # if [ "$ckpt_step_size" != "$cur_step" ]; then
-    #     for modelfile in `ls -1 ${TRAIN_DIR}/model.ckpt-${ckpt_step_size}*`; do
-    #         suffix=`echo $modelfile | sed "s/^.*model.ckpt-${ckpt_step_size}\(.*\)$/\1/"`
-    #         newname=${TRAIN_DIR}/model.ckpt-${cur_step}${suffix}
-    #         echo "rename $modelfile -> $newname"
-    #         mv -vn "$modelfile" "$newname"
-    #     done
-    # fi

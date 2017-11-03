@@ -28,7 +28,7 @@ PRETRAINED_CHECKPOINT_DIR="/home/junjuew/mobisys18/pretrained_models/mobilenet_c
 MODEL_NAME=mobilenet_v1
 
 # Where the training (fine-tuned) checkpoint and logs will be saved to.
-TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/munich/mobilenet_train/logs"
+TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/munich/mobilenet_train/train_logs"
 
 # Where the dataset is saved to.
 DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/munich/mobilenet_train"
@@ -96,7 +96,7 @@ python eval_image_classifier.py \
 
 
 # Run evaluation on test data only
-TEST_DIR="/home/junjuew/mobisys18/processed_dataset/munich/mobilenet_test/logs"
+TEST_DIR="/home/junjuew/mobisys18/processed_dataset/munich/mobilenet_test/test_logs"
 # Where the dataset is saved to.
 TEST_DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/munich/mobilenet_test"
 if [[ -d "$TEST_DIR" ]]; then
@@ -108,5 +108,5 @@ python eval_image_classifier.py \
   --eval_dir=${TEST_DIR} \
   --dataset_name=munich \
   --dataset_split_name=test \
-  --dataset_dir=${DATASET_DIR} \
+  --dataset_dir=${TEST_DATASET_DIR} \
   --model_name=${MODEL_NAME} 2>&1| tee ${TEST_DIR}/log.txt
