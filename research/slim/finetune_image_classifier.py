@@ -195,6 +195,15 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_integer('max_number_of_steps', None,
                             'The maximum number of training steps.')
 
+######################
+# Device Flags #
+######################
+
+tf.app.flags.DEFINE_float(
+    'max_gpu_memory_fraction',
+    0.8,
+    'Upper bound on the fraction of gpu memory to use.')
+
 #####################
 # Fine-Tuning Flags #
 #####################
@@ -216,6 +225,10 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_boolean(
     'ignore_missing_vars', False,
     'When restoring a checkpoint would ignore missing variables.')
+
+tf.app.flags.DEFINE_boolean(
+    'restore_global_step', True,
+    'Whether to restore global step variable.')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -312,7 +325,7 @@ def _configure_optimizer(learning_rate):
   return optimizer
 
 
-def _get_init_fn():
+def _get_init_fn(global_step):
   """Returns a function run by the chief worker to warm-start the training.
 
   Note that the init_fn is only run when initializing the model during the very
@@ -347,6 +360,11 @@ def _get_init_fn():
         break
     if not excluded:
       variables_to_restore.append(var)
+
+  # jj: add global_step to variables_to_restore, since the
+  # model_variables by default doesn't have global step
+  if FLAGS.restore_global_step:
+    variables_to_restore.append(global_step)
 
   if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
     checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
@@ -397,7 +415,7 @@ def main(_):
 
     # Create global_step
     with tf.device(deploy_config.variables_device()):
-      global_step = slim.create_global_step()
+      global_step = slim.get_or_create_global_step()
 
     ######################
     # Select the dataset #
@@ -433,11 +451,9 @@ def main(_):
           common_queue_min=10 * FLAGS.batch_size)
       [image, label] = provider.get(['image', 'label'])
       label -= FLAGS.labels_offset
-
-      train_image_size = FLAGS.train_image_size or network_fn.default_image_size
-
+      train_image_size = (FLAGS.train_image_size or
+                          network_fn.default_image_size)
       image = image_preprocessing_fn(image, train_image_size, train_image_size)
-
       images, labels = tf.train.batch(
           [image, label],
           batch_size=FLAGS.batch_size,
@@ -552,6 +568,8 @@ def main(_):
     # Merge all summaries together.
     summary_op = tf.summary.merge(list(summaries), name='summary_op')
 
+    gpu_options = tf.GPUOptions(
+        per_process_gpu_memory_fraction=FLAGS.max_gpu_memory_fraction)
 
     ###########################
     # Kicks off the training. #
@@ -561,12 +579,13 @@ def main(_):
         logdir=FLAGS.train_dir,
         master=FLAGS.master,
         is_chief=(FLAGS.task == 0),
-        init_fn=_get_init_fn(),
+        init_fn=_get_init_fn(global_step),
         summary_op=summary_op,
         number_of_steps=FLAGS.max_number_of_steps,
         log_every_n_steps=FLAGS.log_every_n_steps,
         save_summaries_secs=FLAGS.save_summaries_secs,
         save_interval_secs=FLAGS.save_interval_secs,
+        session_config=tf.ConfigProto(gpu_options=gpu_options),
         sync_optimizer=optimizer if FLAGS.sync_replicas else None)
 
 
