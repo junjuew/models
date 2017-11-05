@@ -571,6 +571,8 @@ def main(_):
     gpu_options = tf.GPUOptions(
         per_process_gpu_memory_fraction=FLAGS.max_gpu_memory_fraction)
 
+    tf.logging.info(
+        "max number of steps: {}".format(FLAGS.max_number_of_steps))
     ###########################
     # Kicks off the training. #
     ###########################

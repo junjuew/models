@@ -11,7 +11,7 @@ DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experimen
 TEST_DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/test"
 
 # Where the training (fine-tuned) checkpoint and logs will be saved to.
-TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/logs"
+TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/logs_finetune_all_layers"
 
 echo "launching eval on training data"
 # Run evaluation on training data

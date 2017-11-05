@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 die() { echo "$@" 1>&2 ; exit 1; }
 
@@ -9,7 +9,8 @@ PRETRAINED_CHECKPOINT_DIR="/home/junjuew/mobisys18/pretrained_models/mobilenet_c
 MODEL_NAME=mobilenet_v1
 
 # Where the training (fine-tuned) checkpoint and logs will be saved to.
-TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/logs"
+TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/logs_finetune_all_layers"
+
 
 # Where the dataset is saved to.
 DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train"
@@ -32,9 +33,9 @@ python finetune_image_classifier.py \
   --model_name=${MODEL_NAME} \
   --checkpoint_path=${PRETRAINED_CHECKPOINT_DIR}/mobilenet_v1_1.0_224.ckpt \
   --checkpoint_exclude_scopes=MobilenetV1/Logits \
-  --restore_global_step=False \  
+  --restore_global_step=False \
   --trainable_scopes=MobilenetV1/Logits \
-  --max_number_of_steps=20000 \
+  --max_number_of_steps=40000 \
   --batch_size=32 \
   --max_gpu_memory_fraction=1 \
   --learning_rate=0.01 \
@@ -61,4 +62,4 @@ python finetune_image_classifier.py \
        --save_summaries_secs=60 \
        --log_every_n_steps=10 \
        --optimizer=rmsprop \
-       --weight_decay=0.00004 &> ${TRAIN_DIR}/train_all_layer_${cur_step}.log
+       --weight_decay=0.00004 &> ${TRAIN_DIR}/train_all_layer.log
