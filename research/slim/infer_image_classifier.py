@@ -16,10 +16,16 @@
 
 from __future__ import absolute_import, division, print_function
 
+import glob
+import itertools
 import math
 import numpy as np
+import os
+import sys
 
 import tensorflow as tf
+import redis
+
 from datasets import dataset_factory
 from nets import nets_factory
 from preprocessing import preprocessing_factory
@@ -74,6 +80,9 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_integer(
     'eval_image_size', None, 'Eval image size')
 
+tf.app.flags.DEFINE_string(
+    'input_dir', None, 'Test image input dir')
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -83,12 +92,11 @@ def main(_):
 
   tf.logging.set_verbosity(tf.logging.INFO)
   with tf.Graph().as_default():
-    tf_global_step = slim.get_or_create_global_step()
 
     ######################
     # Select the dataset #
     ######################
-    dataset = dataset_factory.get_dataset(
+    dataset_wrapper = dataset_factory.get_dataset(
         FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
 
     ####################
@@ -96,22 +104,8 @@ def main(_):
     ####################
     network_fn = nets_factory.get_network_fn(
         FLAGS.model_name,
-        num_classes=(dataset.num_classes - FLAGS.labels_offset),
+        num_classes=(dataset_wrapper.num_classes - FLAGS.labels_offset),
         is_training=False)
-
-    ##############################################################
-    # Create a dataset provider that loads data from the dataset #
-    ##############################################################
-    provider = slim.dataset_data_provider.DatasetDataProvider(
-        dataset,
-        shuffle=False,
-        common_queue_capacity=2 * FLAGS.batch_size,
-        common_queue_min=FLAGS.batch_size)
-
-    [image, label] = provider.get(['image', 'label'])
-    import pdb
-    pdb.set_trace()
-    label -= FLAGS.labels_offset
 
     #####################################
     # Select the preprocessing function #
@@ -126,19 +120,32 @@ def main(_):
     def fixed_image_size_preprocessing_fn(image):
       return image_preprocessing_fn(image, eval_image_size, eval_image_size)
 
-    # jj: batch size, width, height, 3
-    input_images = tf.placeholder(tf.uint8, shape=[None, None, None, 3])
-    # a tensor of (batch_size, 224, 224, 3)
-    images = tf.map_fn(fixed_image_size_preprocessing_fn,
-                       input_images,
-                       dtype=tf.float32,
-                       name='input_preprocess')
+    ##############################################################
+    # Load input images #
+    ##############################################################
+
+    batch_size = 100
+    input_file_names = tf.placeholder(tf.string, shape=[None],
+                                      name='input_file_names')
+
+    # Reads an image from a file
+    # decodes it into a dense tensor, and resizes it
+    # to a fixed shape.
+    def _parse_function(filename):
+      image_string = tf.read_file(filename)
+      image_decoded = tf.image.decode_jpeg(image_string, channels=3)
+      image_resized = fixed_image_size_preprocessing_fn(image_decoded)
+      return image_resized
+    dataset = tf.data.Dataset.from_tensor_slices(input_file_names)
+    dataset = dataset.map(_parse_function)
+    batched_dataset = dataset.batch(batch_size)
+    iterator = batched_dataset.make_initializable_iterator()
+    next_batch = iterator.get_next(name='infer_input')
 
     ####################
     # Define the model #
     ####################
-    logits, _ = network_fn(images)
-
+    logits, _ = network_fn(next_batch)
     predictions = tf.argmax(logits, 1)
 
     if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
@@ -147,14 +154,39 @@ def main(_):
       checkpoint_path = FLAGS.checkpoint_path
 
     tf.logging.info('Inferring using model from %s' % checkpoint_path)
+
+    file_name_list = glob.glob(os.path.join(FLAGS.input_dir, '*'))
+
+    file_name_iter = itertools.imap(
+        None, *([iter(file_name_list)] * batch_size))
+    last_batch_size = len(file_name_list) % batch_size
+
+    r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
     saver = tf.train.Saver()
     with tf.Session() as sess:
       saver.restore(sess, checkpoint_path)
       tf.logging.info('model restored')
-      predictions = sess.run(predictions,
-                             feed_dict={input_images: np.random.randint(
-                                 0, high=256, size=(100, 256, 256, 3))})
-      print(predictions)
+
+      for file_names in file_name_iter:
+        sess.run(iterator.initializer, feed_dict={input_file_names:
+                                                  file_names})
+        outputs = sess.run(predictions, feed_dict={input_file_names:
+                                                   file_names})
+        image_ids = [os.path.splitext(os.path.basename(file_name))[0] for
+                     file_name in file_names]
+        outputs = outputs.tolist()
+        mappings = dict(zip(image_ids, outputs))
+        tf.logging.info(mappings)
+        r_server.mset(mappings)
+
+      tf.logging.info('evaluating last batch')
+      # evaluate last batch
+      file_names = file_name_list[:-last_batch_size]
+      sess.run(iterator.initializer, feed_dict={input_file_names:
+                                                file_names})
+      image_ids = [os.path.splitext(os.path.basename(file_name))[0] for
+                   file_name in file_names]
+      r_server.mset(dict(zip(image_ids, outputs)))
 
 
 if __name__ == '__main__':
