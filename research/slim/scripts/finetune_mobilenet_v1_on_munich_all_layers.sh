@@ -4,7 +4,7 @@ set -e
 die() { echo "$@" 1>&2 ; exit 1; }
 
 
-FINETUNE_ALL_LAYERS_STEPS=1000
+FINETUNE_ALL_LAYERS_STEPS=5000
 
 # should not use 'exponential' for learning_rate_decay_type, since exponential depends on
 # global_step and # of samples
