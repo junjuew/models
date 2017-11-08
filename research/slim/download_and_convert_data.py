@@ -43,6 +43,7 @@ import tensorflow as tf
 from datasets import download_and_convert_cifar10
 from datasets import download_and_convert_flowers
 from datasets import download_and_convert_mnist
+from datasets import convert_twoclass
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -56,22 +57,30 @@ tf.app.flags.DEFINE_string(
     None,
     'The directory where the output TFRecords and temporary files are saved.')
 
+tf.app.flags.DEFINE_string(
+    'mode',
+    None,
+    'train => split into train and validation. test => test.')
+
 
 def main(_):
-  if not FLAGS.dataset_name:
-    raise ValueError('You must supply the dataset name with --dataset_name')
-  if not FLAGS.dataset_dir:
-    raise ValueError('You must supply the dataset directory with --dataset_dir')
+    if not FLAGS.dataset_name:
+        raise ValueError('You must supply the dataset name with --dataset_name')
+    if not FLAGS.dataset_dir:
+        raise ValueError('You must supply the dataset directory with --dataset_dir')
 
-  if FLAGS.dataset_name == 'cifar10':
-    download_and_convert_cifar10.run(FLAGS.dataset_dir)
-  elif FLAGS.dataset_name == 'flowers':
-    download_and_convert_flowers.run(FLAGS.dataset_dir)
-  elif FLAGS.dataset_name == 'mnist':
-    download_and_convert_mnist.run(FLAGS.dataset_dir)
-  else:
-    raise ValueError(
-        'dataset_name [%s] was not recognized.' % FLAGS.dataset_name)
+    if FLAGS.dataset_name == 'cifar10':
+        download_and_convert_cifar10.run(FLAGS.dataset_dir)
+    elif FLAGS.dataset_name == 'flowers':
+        download_and_convert_flowers.run(FLAGS.dataset_dir)
+    elif FLAGS.dataset_name == 'mnist':
+        download_and_convert_mnist.run(FLAGS.dataset_dir)
+    elif FLAGS.dataset_name == 'two_class':
+        convert_twoclass.run(FLAGS.dataset_dir, FLAGS.mode)
+    else:
+        raise ValueError(
+            'dataset_name [%s] was not recognized.' % FLAGS.dataset_name)
+
 
 if __name__ == '__main__':
-  tf.app.run()
+    tf.app.run()

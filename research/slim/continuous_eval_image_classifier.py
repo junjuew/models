@@ -83,6 +83,15 @@ tf.app.flags.DEFINE_integer(
   'eval_interval_secs',
   180, 'The minimum number of seconds between evaluations')
 
+tf.app.flags.DEFINE_integer(
+    'timeout', None, 'Exits automatically if not detecting a new checkpoint after time out.'
+)
+
+tf.app.flags.DEFINE_float(
+    'max_gpu_memory_fraction',
+    0.8,
+    'Upper bound on the fraction of gpu memory to use.')
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -194,6 +203,9 @@ def main(_):
     checkpoint_dir = FLAGS.checkpoint_path
     tf.logging.info('Launching evaluation loop for %s' % checkpoint_dir)
 
+    gpu_options = tf.GPUOptions(
+        per_process_gpu_memory_fraction=FLAGS.max_gpu_memory_fraction)
+
     slim.evaluation.evaluation_loop(
         master=FLAGS.master,
         checkpoint_dir=checkpoint_dir,
@@ -201,7 +213,10 @@ def main(_):
         num_evals=num_batches,
         eval_op=list(names_to_updates.values()),
         eval_interval_secs=FLAGS.eval_interval_secs,
-        variables_to_restore=variables_to_restore)
+        variables_to_restore=variables_to_restore,
+        timeout=FLAGS.timeout,
+        session_config=tf.ConfigProto(gpu_options=gpu_options)
+    )
 
 
 if __name__ == '__main__':
