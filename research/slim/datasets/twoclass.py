@@ -23,15 +23,17 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import json
+
 import tensorflow as tf
 
 from datasets import dataset_utils
 
 slim = tf.contrib.slim
 
-_FILE_PATTERN = 'munich_%s_*.tfrecord'
+_FILE_PATTERN = 'twoclass_%s_*.tfrecord'
 
-SPLITS_TO_SIZES = {'train': 3825, 'validation': 425, 'test': 4250}
+_META_FILE_NAME = 'twoclass.meta.json'
 
 _NUM_CLASSES = 2
 
@@ -58,7 +60,16 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
   Raises:
     ValueError: if `split_name` is not a valid train/validation split.
   """
-  if split_name not in SPLITS_TO_SIZES:
+  meta_file_path = os.path.join(dataset_dir, _META_FILE_NAME)
+  if not os.path.exists(meta_file_path):
+    raise ValueError(('Cannot find meta file describing split number.'
+                     'No {} in {}'.format(_META_FILE_NAME, dataset_dir)))
+  with open(meta_file_path) as f:
+    split_to_sizes = json.load(f)
+    print('find meta data split sizes: {}'.format(split_to_sizes))
+
+#  SPLITS_TO_SIZES = {'train': 3825, 'validation': 425, 'test': 4250}
+  if split_name not in split_to_sizes:
     raise ValueError('split name %s was not recognized.' % split_name)
 
   if not file_pattern:
@@ -92,7 +103,7 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
       data_sources=file_pattern,
       reader=reader,
       decoder=decoder,
-      num_samples=SPLITS_TO_SIZES[split_name],
+      num_samples=split_to_sizes[split_name],
       items_to_descriptions=_ITEMS_TO_DESCRIPTIONS,
       num_classes=_NUM_CLASSES,
       labels_to_names=labels_to_names)

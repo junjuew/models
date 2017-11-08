@@ -9,8 +9,10 @@ import math
 import os
 import random
 import sys
+import json
 
 import tensorflow as tf
+import fire
 
 from datasets import dataset_utils
 
@@ -20,6 +22,13 @@ _RANDOM_SEED = 0
 # The number of shards per dataset split.
 _NUM_SHARDS = 5
 
+# output file prefix
+_OUTPUT_FILE_PREFIX = 'twoclass'
+
+# split names
+_SPLIT_NAMES = ['train', 'validation', 'test']
+
+_META_FILE_NAME = 'twoclass.meta.json'
 
 class ImageReader(object):
   """Helper class that provides TensorFlow image coding utilities."""
@@ -71,7 +80,7 @@ def _get_filenames_and_classes(dataset_dir):
 
 
 def _get_dataset_filename(dataset_dir, split_name, shard_id):
-  output_filename = 'munich_%s_%05d-of-%05d.tfrecord' % (
+  output_filename = '%s_%s_%05d-of-%05d.tfrecord' % (_OUTPUT_FILE_PREFIX,
       split_name, shard_id, _NUM_SHARDS)
   return os.path.join(dataset_dir, output_filename)
 
@@ -86,7 +95,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
       (integers).
     dataset_dir: The directory where the converted datasets are stored.
   """
-  assert split_name in ['train', 'validation', 'test']
+  assert split_name in _SPLIT_NAMES
 
   num_per_shard = int(math.ceil(len(filenames) / float(_NUM_SHARDS)))
 
@@ -132,12 +141,24 @@ def _dataset_exists(dataset_dir):
   return True
 
 
-def run(dataset_dir):
+def run(dataset_dir, mode, validation_percentage=0.1):
   """Runs the download and conversion operation.
 
   Args:
     dataset_dir: The dataset directory where the dataset is stored.
+    mode: either 'train' or 'test. 'train' data will be split into 
+           'train' and 'validation'
+    validation_percentage: when mode is 'train', the percentage that should
+          go into validation set
   """
+  MODES = ['train', 'test']
+  if mode not in MODES:
+    raise ValueError('mode {} not recognized. It should be one of {}'.format(mode, MODES))
+
+  if mode == 'train':
+    if (validation_percentage < 0) or (validation_percentage > 1):
+      raise ValueError('Invalid validation_percentage {}. It should be a number between 0 to 1'.format(mode, MODES))
+  
   if not tf.gfile.Exists(dataset_dir):
     tf.gfile.MakeDirs(dataset_dir)
 
@@ -152,31 +173,36 @@ def run(dataset_dir):
   random.seed(_RANDOM_SEED)
   random.shuffle(photo_filenames)
 
-  dataset_basename = os.path.basename(dataset_dir)
-  # jj: infer train or test mode from the name of dataset_dir
-  if 'train' in dataset_basename:
+  meta_data = {}
+  if mode == 'train':
     print('create train files')
-    _num_validation = int(len(photo_filenames) * 0.1)
+    _num_validation = int(len(photo_filenames) * validation_percentage)
     training_filenames = photo_filenames[_num_validation:]
     validation_filenames = photo_filenames[:_num_validation]
     _convert_dataset('train', training_filenames, class_names_to_ids,
                      dataset_dir)
     _convert_dataset('validation', validation_filenames, class_names_to_ids,
                      dataset_dir)
-  elif 'test' in dataset_basename:
+    meta_data['train'] = len(training_filenames)
+    meta_data['validation'] = len(validation_filenames)
+  elif mode == 'test':
     print('create test files')
     test_filenames = photo_filenames[:]
     _convert_dataset('test', test_filenames, class_names_to_ids,
                      dataset_dir)
-  else:
-    raise ValueError(("Failed to infer 'train' or 'test' mode "
-                      "from dataset_dir: {}. Please use the word "
-                      "'train' or 'test' in naming your dataset_dir,"
-                      "so that I can infer which mode you want to "
-                      "convert the data").format(dataset_dir))
+    meta_data['test'] = len(test_filenames)
+
+  # record meta data file, unique to twoclass dataset
+  meta_file_path = os.path.join(dataset_dir, _META_FILE_NAME)
+  with open(meta_file_path, 'w') as f:
+    json.dump(meta_data, f)
 
   # Finally, write the labels file:
   labels_to_class_names = dict(zip(range(len(class_names)), class_names))
   dataset_utils.write_label_file(labels_to_class_names, dataset_dir)
 
   print('\nFinished converting the munich dataset!')
+
+
+if __name__ == '__main__':
+  fire.Fire({'run': run})
