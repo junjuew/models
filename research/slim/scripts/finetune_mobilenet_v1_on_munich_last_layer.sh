@@ -8,7 +8,7 @@ if [[ -d "$LAST_LAYER_TRAIN_DIR" ]]; then
 fi
 mkdir -p $LAST_LAYER_TRAIN_DIR
 
-FINETUNE_LAST_LAYER_STEPS=15000
+echo "Finetuning last layer for ${FINETUNE_LAST_LAYER_STEPS:=15000} steps."
 
 # should not use 'exponential' for learning_rate_decay_type, since exponential depends on
 # global_step and # of samples
@@ -20,7 +20,7 @@ python finetune_image_classifier.py \
   --dataset_split_name=train \
   --dataset_dir=${DATASET_DIR} \
   --model_name=${MODEL_NAME} \
-  --checkpoint_path=${PRETRAINED_CHECKPOINT_DIR}/mobilenet_v1_1.0_224.ckpt \
+  --checkpoint_path=${PRETRAINED_CHECKPOINT_DIR} \
   --checkpoint_exclude_scopes=MobilenetV1/Logits \
   --restore_global_step=False \
   --trainable_scopes=MobilenetV1/Logits \

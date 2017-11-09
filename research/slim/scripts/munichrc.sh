@@ -1,5 +1,5 @@
 # Where the pre-trained mobilenet checkpoint is saved to.
-PRETRAINED_CHECKPOINT_DIR="/home/junjuew/mobisys18/pretrained_models/mobilenet_ckpt"
+PRETRAINED_CHECKPOINT_DIR="/home/junjuew/mobisys18/pretrained_models/mobilenet_ckpt/mobilenet_v1_1.0_224.ckpt"
 
 MODEL_NAME=mobilenet_v1
 
