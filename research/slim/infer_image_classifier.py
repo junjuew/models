@@ -181,12 +181,17 @@ def main(_):
 
       tf.logging.info('evaluating last batch')
       # evaluate last batch
-      file_names = file_name_list[:-last_batch_size]
+      file_names = file_name_list[-last_batch_size:]
       sess.run(iterator.initializer, feed_dict={input_file_names:
                                                 file_names})
+      outputs = sess.run(predictions, feed_dict={input_file_names:
+                                                 file_names})
       image_ids = [os.path.splitext(os.path.basename(file_name))[0] for
                    file_name in file_names]
-      r_server.mset(dict(zip(image_ids, outputs)))
+      outputs = outputs.tolist()
+      mappings = dict(zip(image_ids, outputs))
+      tf.logging.info(mappings)
+      r_server.mset(mappings)
 
 
 if __name__ == '__main__':

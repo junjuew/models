@@ -12,7 +12,7 @@ DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experimen
 TRAIN_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/logs_finetune_all_layers"
 
 # test images
-IMAGE_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/test_positive"
+IMAGE_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/test_negative"
 
 echo "launching inference using models at ${TRAIN_DIR}"
 # Run evaluation on training data
