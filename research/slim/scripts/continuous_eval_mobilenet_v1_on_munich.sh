@@ -5,6 +5,10 @@ DIR=$(dirname $0)
 
 source ${DIR}/munichrc.sh
 
+# Where the training (fine-tuned) checkpoint and logs will be saved to.
+#EVAL_FROM_DIR="/home/zf/opt/drone-scalable-search/processed_dataset/munich/mobilenet_train/logs/logs_finetune_last_layer_only"
+#EVAL_FROM_DIR="/home/zf/opt/drone-scalable-search/processed_dataset/munich/mobilenet_train/logs/logs_finetune_all_layers"
+
 ### For evaluating JIT training
 if [[ -n $1 ]]; then
     PICK=$1
@@ -12,12 +16,6 @@ if [[ -n $1 ]]; then
     EVAL_FROM_DIR=${DATASET_DIR}/logs/logs_finetune_last_layer_only
 fi
 ###
-
-die() { echo "$@" 1>&2 ; exit 1; }
-
-# Where the training (fine-tuned) checkpoint and logs will be saved to.
-#EVAL_FROM_DIR="/home/zf/opt/drone-scalable-search/processed_dataset/munich/mobilenet_train/logs/logs_finetune_last_layer_only"
-#EVAL_FROM_DIR="/home/zf/opt/drone-scalable-search/processed_dataset/munich/mobilenet_train/logs/logs_finetune_all_layers"
 
 echo ""
 echo "Launching three evaluation loops on models stored at ${EVAL_FROM_DIR}"

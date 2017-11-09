@@ -8,7 +8,11 @@ if [[ -d "$LAST_LAYER_TRAIN_DIR" ]]; then
 fi
 mkdir -p $LAST_LAYER_TRAIN_DIR
 
-echo "Finetuning last layer for ${FINETUNE_LAST_LAYER_STEPS:=15000} steps."
+echo ""
+echo "Finetuning last layer for ${FINETUNE_LAST_LAYER_STEPS:=20000} steps."
+echo "starting from model at ${PRETRAINED_CHECKPOINT_DIR}"
+echo "using dataset at ${DATASET_DIR}"
+echo ""
 
 # should not use 'exponential' for learning_rate_decay_type, since exponential depends on
 # global_step and # of samples
