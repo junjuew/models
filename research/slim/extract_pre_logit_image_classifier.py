@@ -66,6 +66,11 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_string(
     'input_dir', None, 'Test image input dir')
 
+tf.app.flags.DEFINE_integer(
+    'label', None, 'If specified, a vector y filled with the integer label will be'
+                   'added to output_file too.'
+)
+
 tf.app.flags.DEFINE_string(
     'output_file', None, "Name of output pickle file {'X': X, 'tags', tags'} "
 )
@@ -174,8 +179,6 @@ def main(_):
             file_names = file_name_list[-last_batch_size:]
             sess.run(iterator.initializer, feed_dict={input_file_names:
                                                           file_names})
-            # outputs = sess.run(predictions, feed_dict={input_file_names:
-            #                                            file_names})
             outputs = sess.run(pre_logit, feed_dict={input_file_names:
                                                          file_names})
 
@@ -189,7 +192,13 @@ def main(_):
     tags = [r[0] for r in results]
     X = np.stack([r[1] for r in results], axis=0)
     tf.logging.info("Writing X shape =" + str(X.shape))
-    pickle.dump({'X': X, 'tags': tags}, open(FLAGS.output_file, 'wb'))
+    out_dct = {'X': X, 'tags': tags}
+    if FLAGS.label is not None:
+        y = np.full(X.shape[0], FLAGS.label, dtype=np.int)
+        tf.logging.info("Writing y shape =" + str(y.shape))
+        out_dct['y'] = y
+    tf.logging.info("Wirting to file " + FLAGS.output_file)
+    pickle.dump(out_dct, open(FLAGS.output_file, 'wb'))
 
 
 if __name__ == '__main__':
