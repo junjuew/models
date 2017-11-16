@@ -174,19 +174,20 @@ def main(_):
 
                 results.extend(zip(image_ids, outputs))
 
-            tf.logging.info('evaluating last batch')
-            # evaluate last batch
-            file_names = file_name_list[-last_batch_size:]
-            sess.run(iterator.initializer, feed_dict={input_file_names:
-                                                          file_names})
-            outputs = sess.run(pre_logit, feed_dict={input_file_names:
-                                                         file_names})
+            if last_batch_size > 0:
+                tf.logging.info('evaluating last batch')
+                # evaluate last batch
+                file_names = file_name_list[-last_batch_size:]
+                sess.run(iterator.initializer, feed_dict={input_file_names:
+                                                              file_names})
+                outputs = sess.run(pre_logit, feed_dict={input_file_names:
+                                                             file_names})
 
-            image_ids = [os.path.splitext(os.path.basename(file_name))[0] for
-                         file_name in file_names]
-            outputs = outputs.tolist()
+                image_ids = [os.path.splitext(os.path.basename(file_name))[0] for
+                             file_name in file_names]
+                outputs = outputs.tolist()
 
-            results.extend(zip(image_ids, outputs))
+                results.extend(zip(image_ids, outputs))
 
     tf.logging.info("%d results in total" % len(results))
     tags = [r[0] for r in results]

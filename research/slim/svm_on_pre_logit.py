@@ -13,7 +13,8 @@ DEFAULT_PREFIX = 'pre_logit_'
 def train(dataset_dir,
           prefix=DEFAULT_PREFIX,
           save_model_path=None,
-          n_iters=20):
+          eval_every_iters=20,
+          n_iters=50):
     X, y = _load_pre_logit_Xy(dataset_dir, prefix)
 
     X_train, X_validation, y_train, y_validation = train_test_split(X, y, test_size=0.1, random_state=42)
@@ -25,13 +26,24 @@ def train(dataset_dir,
 
     # scaler = StandardScaler(with_mean=True, with_std=True)
 
+    accuracies = []
     clf = SGDClassifier(random_state=42, verbose=True)  # TODO grid search hyperparameters
-    for _ in range(n_iters):
+    for i in range(n_iters):
         clf.partial_fit(X_train, y_train, classes=np.array([0, 1]))
 
+        if i % eval_every_iters == 0:
+            train_acc = clf.score(X_train, y_train)
+            valid_acc = clf.score(X_validation, y_validation)
+            accuracies.append((i, train_acc, valid_acc))
+            print "Train acc = %f,\nvalidation acc = %f" % (train_acc, valid_acc)
+
     print "Finished training"
-    print "train accuracy: %f" % clf.score(X_train, y_train)
-    print "validation accuracy: %f " % clf.score(X_validation, y_validation)
+
+    print [t[1] for t in accuracies]
+    print [t[2] for t in accuracies]
+
+    print "Final train accuracy: %f" % clf.score(X_train, y_train)
+    print "Final validation accuracy: %f " % clf.score(X_validation, y_validation)
 
     if save_model_path is not None:
         print "saving model to " + save_model_path
@@ -53,6 +65,7 @@ def retrain(dataset_dir,
             checkpoint_path,
             save_model_path=None,
             prefix=DEFAULT_PREFIX,
+            eval_every_iters=20,
             n_iter=10):
     X_new, y_new = _load_pre_logit_Xy(dataset_dir, prefix)
     X_train, X_validation, y_train, y_validation = \
@@ -62,12 +75,25 @@ def retrain(dataset_dir,
 
     clf = pickle.load(open(checkpoint_path, 'rb'))
 
-    print "train accuracy before retrain: ", clf.score(X_train, y_train)
-    print "validation accuracy before retrain: ", clf.score(X_validation, y_validation)
-    for _ in range(n_iter):
+    before_train_acc = clf.score(X_train, y_train)
+    before_valid_acc = clf.score(X_validation, y_validation)
+
+    accuracies = []
+    for i in range(n_iter):
         clf.partial_fit(X_train, y_train)
-    print "train accuracy after retrain: ", clf.score(X_train, y_train)
-    print "validation accuracy after retrain: ", clf.score(X_validation, y_validation)
+        if i % eval_every_iters == 0:
+            train_acc = clf.score(X_train, y_train)
+            valid_acc = clf.score(X_validation, y_validation)
+            accuracies.append((i, train_acc, valid_acc))
+            print "Train acc = %f,\nvalidation acc = %f" % (train_acc, valid_acc)
+
+    print [t[1] for t in accuracies]
+    print [t[2] for t in accuracies]
+
+    print "train accuracy before retrain: ", before_train_acc
+    print "validation accuracy before retrain: ", before_valid_acc
+    print "Final train accuracy after retrain: ", clf.score(X_train, y_train)
+    print "Final validation accuracy after retrain: ", clf.score(X_validation, y_validation)
 
     if save_model_path is not None:
         print "saving model to " + save_model_path

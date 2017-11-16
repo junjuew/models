@@ -18,7 +18,6 @@ source ${DIR}/munichrc.sh
 
 JIT_DATASET_DIR="/home/zf/opt/drone-scalable-search/processed_dataset/munich/mobilenet_jit_train_${PICK}"
 JIT_TRAIN_DIR="${JIT_DATASET_DIR}/logs"
-JIT_ALL_LAYER_TRAIN_DIR="${JIT_TRAIN_DIR}/logs_finetune_all_layers"
 JIT_LAST_LAYER_TRAIN_DIR="${JIT_TRAIN_DIR}/logs_finetune_last_layer_only"
 
 # switch to LAST_LAYER_TRAIN_DIR if wanna start from last-layer-trained model
@@ -32,7 +31,7 @@ mkdir -p ${JIT_LAST_LAYER_TRAIN_DIR}
 echo ""
 echo "JIT fine tune last layer"
 echo ""
-echo "Finetuning last layer for ${JIT_FINETUNE_LAST_LAYER_STEPS:=10000} steps."
+echo "Finetuning last layer for ${JIT_FINETUNE_LAST_LAYER_STEPS:=5000} steps."
 echo "starting from model at ${PRETRAINED_CHECKPOINT_DIR}"
 echo "using dataset at ${JIT_DATASET_DIR}"
 echo ""
@@ -51,8 +50,8 @@ python finetune_image_classifier.py \
   --max_number_of_steps=${JIT_FINETUNE_LAST_LAYER_STEPS} \
   --batch_size=32 \
   --max_gpu_memory_fraction=0.6 \
-  --learning_rate=0.0001 \
-  --learning_rate_decay_type=fixed \
+  --learning_rate=0.00001 \
+  --learning_rate_decay_type=exponential \
   --save_interval_secs=60 \
   --save_summaries_secs=60 \
   --log_every_n_steps=10 \
