@@ -46,14 +46,14 @@ echo "using split $DATA_SPLIT_NAME with batch size $BATCH_SIZE"
 echo "launching continous eval"
 
 python continuous_eval_image_classifier.py \
-       --batch_size=40 \
+       --batch_size=${BATCH_SIZE} \
        --checkpoint_path=${TRAIN_DIR} \
        --eval_dir=${TRAIN_DIR}/eval_${DATA_SPLIT_NAME} \
        --eval_interval_secs=360 \
        --dataset_name=twoclass \
        --dataset_split_name=${DATA_SPLIT_NAME} \
        --dataset_dir=${DATASET_DIR} \
-       --max_gpu_memory_fraction=0.2 \
+       --max_gpu_memory_fraction=0.15 \
        --model_name=${MODEL_NAME} &> ${TRAIN_DIR}/continuous_eval_${DATA_SPLIT_NAME}.log &
 BGPIDS=$!
 
