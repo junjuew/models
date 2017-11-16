@@ -27,7 +27,7 @@ python finetune_image_classifier.py \
        --max_number_of_steps=${FINETUNE_ALL_LAYERS_STEPS} \
        --max_gpu_memory_fraction=0.6 \
        --batch_size=32 \
-       --learning_rate=0.0001 \
+       --learning_rate=0.00001 \
        --learning_rate_decay_type=fixed \
        --save_interval_secs=60 \
        --save_summaries_secs=60 \
