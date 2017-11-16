@@ -54,7 +54,7 @@ python continuous_eval_image_classifier.py \
        --dataset_split_name=${DATA_SPLIT_NAME} \
        --dataset_dir=${DATASET_DIR} \
        --max_gpu_memory_fraction=0.2 \
-       --model_name=${MODEL_NAME} &> ${TRAIN_DIR}/continuous_eval_train.log &
+       --model_name=${MODEL_NAME} &> ${TRAIN_DIR}/continuous_eval_${DATA_SPLIT_NAME}.log &
 BGPIDS=$!
 
 echo "background process ids: $BGPIDS"
