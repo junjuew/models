@@ -24,7 +24,7 @@ import os
 import sys
 
 import tensorflow as tf
-import redis
+import pickle
 
 from datasets import dataset_factory
 from nets import nets_factory
@@ -57,7 +57,50 @@ tf.app.flags.DEFINE_string('model_name', 'inception_v3',
 
 tf.app.flags.DEFINE_string('input_dir', None, 'Test image input dir')
 
+tf.app.flags.DEFINE_string('result_hook', 'RedisHook', 'The Hook class used to process inference results. '
+                                                       'One of "RedisHook", "PickleHook".')
+
+tf.app.flags.DEFINE_string('result_file', 'inference_results.p', 'The file to store inference result.')
+
 FLAGS = tf.app.flags.FLAGS
+
+
+class InferResultHook(object):
+    def add_results(self, image_ids, predictions):
+        raise NotImplementedError()
+
+    def finalize(self):
+        raise NotImplementedError()
+
+
+class RedisHook(InferResultHook):
+    def __init__(self):
+        super(RedisHook, self).__init__()
+        import redis
+        self.r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    def add_results(self, image_ids, predictions):
+        mappings = dict(zip(image_ids, predictions))
+        tf.logging.info(mappings)
+        self.r_server.mset(mappings)
+
+    def finalize(self):
+        pass
+
+
+class PickleHook(InferResultHook):
+    def __init__(self):
+        super(PickleHook, self).__init__()
+        self.filename = FLAGS.result_file
+        self.results = []
+
+    def add_results(self, image_ids, predictions):
+        l = zip(image_ids, predictions)
+        tf.logging.info('\n'.join(map(str, l)))
+        self.results.extend(l)
+
+    def finalize(self):
+        pickle.dump(self.results, open(self.filename, 'wb'))
 
 
 def main(_):
@@ -113,7 +156,11 @@ def main(_):
                 image_decoded)
             return image_resized
 
-        dataset = tf.data.Dataset.from_tensor_slices(input_file_names)
+        try:
+            dataset = tf.data.Dataset.from_tensor_slices(input_file_names)
+        except AttributeError:
+            dataset = tf.contrib.data.Dataset.from_tensor_slices(input_file_names)
+
         dataset = dataset.map(_parse_function)
         batched_dataset = dataset.batch(batch_size)
         iterator = batched_dataset.make_initializable_iterator()
@@ -139,7 +186,9 @@ def main(_):
             None, *([iter(file_name_list)] * batch_size))
         last_batch_size = len(file_name_list) % batch_size
 
-        r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+        tf.logging.info("Using result hook class: " + FLAGS.result_hook)
+        result_hook = globals()[FLAGS.result_hook]()
+
         saver = tf.train.Saver()
         with tf.Session(
                 config=tf.ConfigProto(log_device_placement=True)) as sess:
@@ -161,9 +210,7 @@ def main(_):
                     for file_name in file_names
                 ]
                 outputs = outputs.tolist()
-                mappings = dict(zip(image_ids, outputs))
-                tf.logging.info(mappings)
-                r_server.mset(mappings)
+                result_hook.add_results(image_ids, outputs)
 
             if last_batch_size > 0:
                 tf.logging.info('evaluating last batch')
@@ -183,9 +230,9 @@ def main(_):
                     for file_name in file_names
                 ]
                 outputs = outputs.tolist()
-                mappings = dict(zip(image_ids, outputs))
-                tf.logging.info(mappings)
-                r_server.mset(mappings)
+                result_hook.add_results(image_ids, outputs)
+
+        result_hook.finalize()
 
 
 if __name__ == '__main__':
