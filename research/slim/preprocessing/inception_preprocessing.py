@@ -285,7 +285,8 @@ def preprocess_image(image, height, width,
                      is_training=False,
                      bbox=None,
                      fast_mode=True,
-                     add_image_summaries=True):
+                     central_fraction=0,
+                     add_image_summaries=False):
   """Pre-process one image for training or evaluation.
 
   Args:
@@ -314,4 +315,5 @@ def preprocess_image(image, height, width,
     return preprocess_for_train(image, height, width, bbox, fast_mode,
                                 add_image_summaries=add_image_summaries)
   else:
-    return preprocess_for_eval(image, height, width)
+    return preprocess_for_eval(
+        image, height, width, central_fraction=central_fraction)

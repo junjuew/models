@@ -56,6 +56,7 @@ tf.app.flags.DEFINE_string('model_name', 'inception_v3',
                            'The name of the architecture to evaluate.')
 
 tf.app.flags.DEFINE_string('input_dir', None, 'Test image input dir')
+tf.app.flags.DEFINE_integer('redis_db', -1, 'Index of Redis Database to use')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -64,6 +65,9 @@ def main(_):
     if not FLAGS.dataset_dir:
         raise ValueError(
             'You must supply the dataset directory with --dataset_dir')
+
+    if FLAGS.redis_db < 0:
+        raise ValueError('Invalid Redis Database index: {}'.format(FLAGS.redis_db))
 
     tf.logging.set_verbosity(tf.logging.INFO)
     with tf.Graph().as_default():
@@ -139,7 +143,8 @@ def main(_):
             None, *([iter(file_name_list)] * batch_size))
         last_batch_size = len(file_name_list) % batch_size
 
-        r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+        r_server = redis.StrictRedis(host='localhost', port=6379,
+                                     db=FLAGS.redis_db)
         saver = tf.train.Saver()
         with tf.Session(
                 config=tf.ConfigProto(log_device_placement=True)) as sess:
