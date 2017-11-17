@@ -5,18 +5,17 @@ die() { echo "$@" 1>&2 ; exit 1; }
 
 MODEL_NAME=mobilenet_v1
 
-# Where the dataset is saved to.
-DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/1_discard_small_overlap_roi/mobilenet_train"
-
 # Where the training (fine-tuned) checkpoint and logs will be saved to.
 # train_dir is input from user
-if [ $# -lt 3 ]; then
-    die "Invoke the scripts as infer_mobilenet.sh checkpoint_dir test_image_dir redis_db"
+if [ $# -lt 4 ]; then
+    die "Invoke the scripts as infer_mobilenet.sh dataset_dir checkpoint_dir test_image_dir redis_db"
 fi
 
-CHECKPOINT_DIR=$1
-IMAGE_DIR=$2
-REDIS_DB=$3
+# Where the dataset is saved to.
+DATASET_DIR=$1
+CHECKPOINT_DIR=$2
+IMAGE_DIR=$3
+REDIS_DB=$4
 
 if [ ! -d "$CHECKPOINT_DIR" ]; then
     die "directory $CHECKPOINT_DIR does not exist!"

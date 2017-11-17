@@ -57,6 +57,12 @@ tf.app.flags.DEFINE_string('model_name', 'inception_v3',
 
 tf.app.flags.DEFINE_string('input_dir', None, 'Test image input dir')
 tf.app.flags.DEFINE_integer('redis_db', -1, 'Index of Redis Database to use')
+tf.app.flags.DEFINE_string(
+    'output_endpoint_names', 'Predictions,AvgPool_1a',
+    'Output endpoints names.'
+    'Endpoints are defined by network_fn. '
+    'For mobilenet, AvgPool_1a is the extracted feature layer. '
+    'Predictions is the final output layer')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -126,9 +132,13 @@ def main(_):
         ####################
         # Define the model #
         ####################
-        logits, _ = network_fn(next_batch)
-        predictions = tf.argmax(logits, 1)
-
+        logits, endpoints = network_fn(next_batch)
+        endpoint_names = FLAGS.output_endpoint_names.split(',')
+        output_endpoints = []
+        for endpoint_name in endpoint_names:
+            assert (endpoint_name in endpoints)
+            output_endpoints.append(endpoints[endpoint_name])
+            
         if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
             checkpoint_path = tf.train.latest_checkpoint(
                 FLAGS.checkpoint_path)
@@ -141,13 +151,14 @@ def main(_):
 
         file_name_iter = itertools.imap(
             None, *([iter(file_name_list)] * batch_size))
-        last_batch_size = len(file_name_list) % batch_size
+        inference_num = len(file_name_list)
+        last_batch_size = inference_num % batch_size
 
         r_server = redis.StrictRedis(host='localhost', port=6379,
                                      db=FLAGS.redis_db)
         saver = tf.train.Saver()
-        with tf.Session(
-                config=tf.ConfigProto(log_device_placement=True)) as sess:
+        finished_num = 0
+        with tf.Session() as sess:
             saver.restore(sess, checkpoint_path)
             tf.logging.info('model restored')
 
@@ -157,18 +168,24 @@ def main(_):
                     feed_dict={
                         input_file_names: file_names
                     })
-                outputs = sess.run(
-                    predictions, feed_dict={
-                        input_file_names: file_names
-                    })
+                outputs = sess.run(output_endpoints, feed_dict={
+                    input_file_names: file_names})
                 image_ids = [
                     os.path.splitext(os.path.basename(file_name))[0]
                     for file_name in file_names
                 ]
-                outputs = outputs.tolist()
+
+                # remove unnecessary dimensions
+                outputs = [np.squeeze(output) for output in outputs]
+                # concatenate them together, so that outputs[0] is the
+                # result for the first image
+                outputs = np.concatenate(outputs, axis=1).tolist()
+
                 mappings = dict(zip(image_ids, outputs))
-                tf.logging.info(mappings)
                 r_server.mset(mappings)
+                finished_num += batch_size
+                tf.logging.info(
+                    'finished [{}/{}]'.format(finished_num, inference_num))
 
             if last_batch_size > 0:
                 tf.logging.info('evaluating last batch')
@@ -179,18 +196,24 @@ def main(_):
                     feed_dict={
                         input_file_names: file_names
                     })
-                outputs = sess.run(
-                    predictions, feed_dict={
-                        input_file_names: file_names
-                    })
+                outputs = sess.run(output_endpoints, feed_dict={
+                    input_file_names: file_names})
                 image_ids = [
                     os.path.splitext(os.path.basename(file_name))[0]
                     for file_name in file_names
                 ]
-                outputs = outputs.tolist()
+
+                # remove unnecessary dimensions
+                outputs = [np.squeeze(output) for output in outputs]
+                # concatenate them together, so that outputs[0] is the
+                # result for the first image
+                outputs = np.concatenate(outputs, axis=1).tolist()
+
                 mappings = dict(zip(image_ids, outputs))
-                tf.logging.info(mappings)
                 r_server.mset(mappings)
+                finished_num += len(mappings)
+                tf.logging.info(
+                    'finished [{}/{}]'.format(finished_num, inference_num))
 
 
 if __name__ == '__main__':
