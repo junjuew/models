@@ -25,6 +25,7 @@ import sys
 
 import tensorflow as tf
 import pickle
+import redis
 
 from datasets import dataset_factory
 from nets import nets_factory
@@ -56,6 +57,13 @@ tf.app.flags.DEFINE_string('model_name', 'inception_v3',
                            'The name of the architecture to evaluate.')
 
 tf.app.flags.DEFINE_string('input_dir', None, 'Test image input dir')
+tf.app.flags.DEFINE_integer('redis_db', -1, 'Index of Redis Database to use')
+tf.app.flags.DEFINE_string(
+    'output_endpoint_names', 'Predictions,AvgPool_1a',
+    'Output endpoints names.'
+    'Endpoints are defined by network_fn. '
+    'For mobilenet, AvgPool_1a is the extracted feature layer. '
+    'Predictions is the final output layer')
 
 tf.app.flags.DEFINE_string('result_hook', 'RedisHook', 'The Hook class used to process inference results. '
                                                        'One of "RedisHook", "PickleHook".')
@@ -76,8 +84,7 @@ class InferResultHook(object):
 class RedisHook(InferResultHook):
     def __init__(self):
         super(RedisHook, self).__init__()
-        import redis
-        self.r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+        self.r_server = redis.StrictRedis(host='localhost', port=6379, db=FLAGS.redis_db)
 
     def add_results(self, image_ids, predictions):
         mappings = dict(zip(image_ids, predictions))
@@ -107,6 +114,9 @@ def main(_):
     if not FLAGS.dataset_dir:
         raise ValueError(
             'You must supply the dataset directory with --dataset_dir')
+
+    if FLAGS.redis_db < 0:
+        raise ValueError('Invalid Redis Database index: {}'.format(FLAGS.redis_db))
 
     tf.logging.set_verbosity(tf.logging.INFO)
     with tf.Graph().as_default():
@@ -169,9 +179,13 @@ def main(_):
         ####################
         # Define the model #
         ####################
-        logits, _ = network_fn(next_batch)
-        predictions = tf.argmax(logits, 1)
-
+        logits, endpoints = network_fn(next_batch)
+        endpoint_names = FLAGS.output_endpoint_names.split(',')
+        output_endpoints = []
+        for endpoint_name in endpoint_names:
+            assert (endpoint_name in endpoints)
+            output_endpoints.append(endpoints[endpoint_name])
+            
         if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
             checkpoint_path = tf.train.latest_checkpoint(
                 FLAGS.checkpoint_path)
@@ -184,14 +198,15 @@ def main(_):
 
         file_name_iter = itertools.imap(
             None, *([iter(file_name_list)] * batch_size))
-        last_batch_size = len(file_name_list) % batch_size
+        inference_num = len(file_name_list)
+        last_batch_size = inference_num % batch_size
 
         tf.logging.info("Using result hook class: " + FLAGS.result_hook)
         result_hook = globals()[FLAGS.result_hook]()
 
         saver = tf.train.Saver()
-        with tf.Session(
-                config=tf.ConfigProto(log_device_placement=True)) as sess:
+        finished_num = 0
+        with tf.Session() as sess:
             saver.restore(sess, checkpoint_path)
             tf.logging.info('model restored')
 
@@ -201,16 +216,24 @@ def main(_):
                     feed_dict={
                         input_file_names: file_names
                     })
-                outputs = sess.run(
-                    predictions, feed_dict={
-                        input_file_names: file_names
-                    })
+                outputs = sess.run(output_endpoints, feed_dict={
+                    input_file_names: file_names})
                 image_ids = [
                     os.path.splitext(os.path.basename(file_name))[0]
                     for file_name in file_names
                 ]
-                outputs = outputs.tolist()
+
+                # remove unnecessary dimensions
+                outputs = [np.squeeze(output) for output in outputs]
+                # concatenate them together, so that outputs[0] is the
+                # result for the first image
+                outputs = np.concatenate(outputs, axis=1).tolist()
+
                 result_hook.add_results(image_ids, outputs)
+
+                finished_num += batch_size
+                tf.logging.info(
+                    'finished [{}/{}]'.format(finished_num, inference_num))
 
             if last_batch_size > 0:
                 tf.logging.info('evaluating last batch')
@@ -221,16 +244,23 @@ def main(_):
                     feed_dict={
                         input_file_names: file_names
                     })
-                outputs = sess.run(
-                    predictions, feed_dict={
-                        input_file_names: file_names
-                    })
+                outputs = sess.run(output_endpoints, feed_dict={
+                    input_file_names: file_names})
                 image_ids = [
                     os.path.splitext(os.path.basename(file_name))[0]
                     for file_name in file_names
                 ]
-                outputs = outputs.tolist()
+
+                # remove unnecessary dimensions
+                outputs = [np.squeeze(output) for output in outputs]
+                # concatenate them together, so that outputs[0] is the
+                # result for the first image
+                outputs = np.concatenate(outputs, axis=1).tolist()
                 result_hook.add_results(image_ids, outputs)
+
+                finished_num += len(mappings)
+                tf.logging.info(
+                    'finished [{}/{}]'.format(finished_num, inference_num))
 
         result_hook.finalize()
 
