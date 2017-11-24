@@ -64,7 +64,8 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
         split_name, _META_FILE_NAME_SUFFIX))
     if not os.path.exists(meta_file_path):
         raise ValueError(('Cannot find meta file describing split number.'
-                          'No {} in {}'.format(_META_FILE_NAME, dataset_dir)))
+                          'No {} in {}'.format(_META_FILE_NAME_SUFFIX,
+                                               dataset_dir)))
     with open(meta_file_path) as f:
         split_to_sizes = json.load(f)
         print('find meta data split sizes: {}'.format(split_to_sizes))

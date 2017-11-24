@@ -230,7 +230,7 @@ def run(dataset_dir, mode, tile_width, tile_height, validation_percentage=0.1):
         meta_file_path = os.path.join(dataset_dir, '{}.{}'.format(
             split_name, _META_FILE_NAME_SUFFIX))
         with open(meta_file_path, 'w') as f:
-            json.dump({meta_data[split_name]: value}, f)
+            json.dump({split_name: value}, f)
 
     # Finally, write the labels file:
     labels_to_class_names = dict(zip(range(len(class_names)), class_names))
