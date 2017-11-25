@@ -22,7 +22,7 @@ import itertools
 import json
 import numpy as np
 import os
-import pickle
+import cPickle as pickle
 import time
 from PIL import Image
 
@@ -34,7 +34,7 @@ from preprocessing import preprocessing_factory
 
 slim = tf.contrib.slim
 
-tf.app.flags.DEFINE_integer('batch_size', 100,
+tf.app.flags.DEFINE_integer('batch_size', 30,
                             'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_string(
@@ -65,6 +65,10 @@ tf.app.flags.DEFINE_integer(
     'grid_w', -1, '# of tiles horizontally.')
 tf.app.flags.DEFINE_integer(
     'grid_h', -1, '# of tiles vertically.')
+tf.app.flags.DEFINE_float(
+    'max_gpu_memory_fraction',
+    0.3,
+    'Upper bound on the fraction of gpu memory to use.')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -125,11 +129,12 @@ class PickleDictHook(InferResultHook):
 
     def add_results(self, image_ids, predictions):
         mapping = dict(zip(image_ids, predictions))
-        tf.logging.info(json.dumps(mapping, indent=4))
+        # tf.logging.info(json.dumps(mapping, indent=4))
         self.results.update(mapping)
 
     def finalize(self):
-        pickle.dump(self.results, open(self.filename, 'wb'))
+        with open(self.filename, 'wb') as f:
+            pickle.dump(self.results, f)
 
 
 def _get_tf_preprocessing_fn(network_fn):
@@ -232,7 +237,8 @@ def _evaluate_batch(sess, file_paths, input_images_op, output_endpoints_op, resu
     images = [Image.open(image_path) for image_path in file_paths]
     images_np = [load_image_into_numpy_array(
         image) for image in images]
-    tf.logging.info('load images into numpy array took: {} s'.format(time.time() - st))
+    tf.logging.info(
+        'load images into numpy array took: {} s'.format(time.time() - st))
     st = time.time()
 
     # TODO: probably heavy copy here, inefficient
@@ -294,6 +300,9 @@ def main(_):
     globals()['_divide_to_tiles_fixed_size'] = functools.partial(
         _divide_to_tiles, grid_w=FLAGS.grid_w, grid_h=FLAGS.grid_h)
 
+    gpu_options = tf.GPUOptions(
+        per_process_gpu_memory_fraction=FLAGS.max_gpu_memory_fraction)
+
     tf.logging.set_verbosity(tf.logging.INFO)
     with tf.Graph().as_default():
         input_images_op, output_endpoints_op = _create_tf_inference_graph(
@@ -314,7 +323,8 @@ def main(_):
 
         saver = tf.train.Saver()
         finished_num = 0
-        with tf.Session() as sess:
+        with tf.Session(
+                config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
             saver.restore(sess, checkpoint_path)
             tf.logging.info('model restored')
             for file_paths in file_name_iter:
