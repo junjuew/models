@@ -29,7 +29,7 @@ def make_tp_fp_dataset(file_glob, redis_host, output_file=None, max_samples=3000
     :param redis_host:
     :param output_file: a pickle file {'X': np.array, 'y': np.array, 'image_ids': tuple<str>}
     :param file_glob: the wildcard giving a video's all tiles. Ground truth is guessed from the file paths.
-    :param max_samples: Maximum number of samples to retain for each category (TP/FP)
+    :param max_samples: Maximum number of TP samples to retain
     :return:
     """
     paths = glob.glob(file_glob)
@@ -124,8 +124,6 @@ def load_pre_logit_Xy(pre_logit_files):
     X = np.concatenate([d['X'] for d in inputs])
     y = np.concatenate([d['y'] for d in inputs])
     image_ids = itertools.chain.from_iterable([d['image_ids'] for d in inputs])
-    print("Loaded X " + str(X.shape))
-    print("Loaded y " + str(y.shape))
     return X, y, image_ids
 
 
