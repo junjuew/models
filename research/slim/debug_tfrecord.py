@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Generic evaluation script that evaluates a model using a given dataset."""
+"""Save the first 100 images from a twoclass tfrecord file to disk for
+inspection."""
 
 from __future__ import absolute_import, division, print_function
 
 import cv2
+import numpy as np
+import os
 
 import tensorflow as tf
-import numpy as np
+
 
 slim = tf.contrib.slim
 
+tf.app.flags.DEFINE_string('input_file', None, 'Input TF Record file')
+tf.app.flags.DEFINE_string('output_dir', None, 'Where the images are saved to')
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -45,12 +50,19 @@ def read_and_decode(filename_queue):
     return features['image/encoded'], features['image/class/label']
 
 
+def create_dir_if_not_exist(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
+    assert FLAGS.input_file
+    assert FLAGS.output_dir
+    create_dir_if_not_exist(FLAGS.output_dir)
 
-    input_file_list = [
-        '/home/junjuew/mobisys18/processed_dataset/okutama/experiments/classification_896_896/twoclass_train_00000-of-00005.tfrecord'
-    ]
+    input_file_list = [FLAGS.input_file]
+
     with tf.Session() as sess:
         filename_queue = tf.train.string_input_producer(input_file_list)
         encoded_image_op, label_op = read_and_decode(filename_queue)
@@ -63,14 +75,11 @@ def main(_):
             encoded_image = np.asarray(
                 bytearray(encoded_image), dtype=np.uint8)
             im = cv2.imdecode(encoded_image, cv2.CV_LOAD_IMAGE_UNCHANGED)
-            cv2.imwrite('/tmp/{}_{}.jpg'.format(i, label), im)
-            # example, l = sess.run([image, label])
-            # img = Image.fromarray(example, 'RGB')
-            # img.save("output/" + str(i) + '-train.png')
-
-            # print(example, l)
-        coord.request_stop()
-        coord.join(threads)
+            cv2.imwrite(
+                os.path.join(FLAGS.output_dir, '{}_{}.jpg'.format(i, label)),
+                im)
+            coord.request_stop()
+            coord.join(threads)
 
 
 if __name__ == '__main__':
