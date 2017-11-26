@@ -1,0 +1,17 @@
+TRAIN_LAST_LAYER=true
+TRAIN_ALL_LAYER=true
+
+# Where the pre-trained mobilenet checkpoint is saved to. Only used when TRAIN_LAST_LAYER is true
+PRETRAINED_CHECKPOINT_DIR="/home/junjuew/mobisys18/pretrained_models/mobilenet_ckpt"
+
+# Where the dataset is saved to.
+DATASET_DIR="/home/junjuew/mobisys18/processed_dataset/okutama/experiments/classification_224_224"
+
+LAST_LAYER_MAX_STEP=10000
+ALL_LAYER_MAX_STEP=20000
+
+# Where the training (fine-tuned) checkpoint and logs will be saved to.
+LAST_LAYER_TRAIN_DIR="${DATASET_DIR}/logs_last_layer_only_${LAST_LAYER_MAX_STEP}"
+ALL_LAYER_TRAIN_DIR="${DATASET_DIR}/logs_all_layers_${ALL_LAYER_MAX_STEP}"
+
+MAX_GPU_MEMORY_USAGE=1.0

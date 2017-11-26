@@ -51,10 +51,10 @@ tf.app.flags.DEFINE_integer(
 
 tf.app.flags.DEFINE_string('model_name', 'mobilenet_v1',
                            'The name of the architecture to evaluate.')
-tf.app.flags.DEFINE_string(
-    'input_image_width', 224, 'Width of expected input images')
-tf.app.flags.DEFINE_string(
-    'input_image_height', 224, 'Height of expected input images')
+tf.app.flags.DEFINE_string('input_image_width', 224,
+                           'Width of expected input images')
+tf.app.flags.DEFINE_string('input_image_height', 224,
+                           'Height of expected input images')
 tf.app.flags.DEFINE_string('output_node_names',
                            'MobilenetV1/Predictions/Reshape_1',
                            'The name of the output nodes, comma separated.')
@@ -64,6 +64,11 @@ tf.app.flags.DEFINE_integer('placeholder_type_enum',
                             'The AttrValue enum to use for placeholders')
 
 FLAGS = tf.app.flags.FLAGS
+
+
+def create_dir_if_not_exist(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
 
 
 def optimize_frozen_graph(input_graph_file, input_names, output_names,
@@ -86,9 +91,8 @@ def optimize_frozen_graph(input_graph_file, input_names, output_names,
         input_graph_def.ParseFromString(data)
 
     output_graph_def = optimize_for_inference_lib.optimize_for_inference(
-        input_graph_def,
-        input_names.split(","),
-        output_names.split(","), FLAGS.placeholder_type_enum)
+        input_graph_def, input_names.split(","), output_names.split(","),
+        FLAGS.placeholder_type_enum)
 
     f = gfile.FastGFile(output_path, "w")
     f.write(output_graph_def.SerializeToString())
@@ -98,6 +102,7 @@ def main(_):
     if not FLAGS.dataset_dir:
         raise ValueError(
             'You must supply the dataset directory with --dataset_dir')
+    create_dir_if_not_exist(FLAGS.output_dir)
 
     tf.logging.set_verbosity(tf.logging.INFO)
     with tf.Graph().as_default():
@@ -112,28 +117,24 @@ def main(_):
         ####################
         network_fn = nets_factory.get_network_fn(
             FLAGS.model_name,
-            num_classes=(
-                dataset_wrapper.num_classes - FLAGS.labels_offset),
+            num_classes=(dataset_wrapper.num_classes - FLAGS.labels_offset),
             is_training=False)
 
         ##############################################################
         # input images should be already processed
         ##############################################################
         input_images = tf.placeholder(
-            tf.float32, shape=[None,
-                               FLAGS.input_image_width,
-                               FLAGS.input_image_height,
-                               3], name='input')
+            tf.float32,
+            shape=[None, FLAGS.input_image_width, FLAGS.input_image_height, 3],
+            name='input')
 
         ####################
         # Define the model #
         ####################
         _, endpoints = network_fn(input_images)
-        predictions = endpoints['Predictions']
 
         if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
-            checkpoint_path = tf.train.latest_checkpoint(
-                FLAGS.checkpoint_path)
+            checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
         else:
             checkpoint_path = FLAGS.checkpoint_path
 
@@ -147,10 +148,7 @@ def main(_):
 
             output_model_path = os.path.join(FLAGS.output_dir,
                                              'no_preprocessing_model')
-            model_path = saver.save(
-                sess,
-                output_model_path,
-                global_step=0)
+            model_path = saver.save(sess, output_model_path, global_step=0)
             graph_path = tf.train.write_graph(sess.graph, FLAGS.output_dir,
                                               'no_preprocessing_graph.pbtxt')
 
@@ -160,17 +158,15 @@ def main(_):
     output_node_names = FLAGS.output_node_names
     restore_op_name = "save/restore_all"
     filename_tensor_name = "save/Const:0"
-    output_graph_path = os.path.join(
-        FLAGS.output_dir, 'frozen_graph.pb')
+    output_graph_path = os.path.join(FLAGS.output_dir, 'frozen_graph.pb')
     clear_devices = True
     variable_names_blacklist = ""
     input_model_path = model_path
 
-    freeze_graph.freeze_graph(input_graph_path, input_saver_def_path,
-                              input_binary, input_model_path,
-                              output_node_names, restore_op_name,
-                              filename_tensor_name, output_graph_path,
-                              clear_devices, variable_names_blacklist)
+    freeze_graph.freeze_graph(
+        input_graph_path, input_saver_def_path, input_binary, input_model_path,
+        output_node_names, restore_op_name, filename_tensor_name,
+        output_graph_path, clear_devices, variable_names_blacklist)
     tf.logging.info('optimizing graph for inference')
     optimized_graph_path = os.path.join(FLAGS.output_dir,
                                         'optimized_frozen_graph.pb')

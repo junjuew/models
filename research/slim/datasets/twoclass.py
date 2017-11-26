@@ -33,7 +33,7 @@ slim = tf.contrib.slim
 
 _FILE_PATTERN = 'twoclass_%s_*.tfrecord'
 
-_META_FILE_NAME = 'twoclass.meta.json'
+_META_FILE_NAME_SUFFIX = 'twoclass.meta.json'
 
 _NUM_CLASSES = 2
 
@@ -44,7 +44,7 @@ _ITEMS_TO_DESCRIPTIONS = {
 
 
 def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
-  """Gets a dataset tuple with instructions for reading munich.
+    """Gets a dataset tuple with instructions for reading munich.
 
   Args:
     split_name: A train/validation split name.
@@ -60,50 +60,56 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
   Raises:
     ValueError: if `split_name` is not a valid train/validation split.
   """
-  meta_file_path = os.path.join(dataset_dir, _META_FILE_NAME)
-  if not os.path.exists(meta_file_path):
-    raise ValueError(('Cannot find meta file describing split number.'
-                     'No {} in {}'.format(_META_FILE_NAME, dataset_dir)))
-  with open(meta_file_path) as f:
-    split_to_sizes = json.load(f)
-    print('find meta data split sizes: {}'.format(split_to_sizes))
+    meta_file_path = os.path.join(dataset_dir, '{}.{}'.format(
+        split_name, _META_FILE_NAME_SUFFIX))
+    if not os.path.exists(meta_file_path):
+        raise ValueError(('Cannot find meta file describing split number.'
+                          'No {} in {}'.format(_META_FILE_NAME_SUFFIX,
+                                               dataset_dir)))
+    with open(meta_file_path) as f:
+        split_to_sizes = json.load(f)
+        print('find meta data split sizes: {}'.format(split_to_sizes))
+
 
 #  SPLITS_TO_SIZES = {'train': 3825, 'validation': 425, 'test': 4250}
-  if split_name not in split_to_sizes:
-    raise ValueError('split name %s was not recognized.' % split_name)
+    if split_name not in split_to_sizes:
+        raise ValueError('split name %s was not recognized.' % split_name)
 
-  if not file_pattern:
-    file_pattern = _FILE_PATTERN
-  file_pattern = os.path.join(dataset_dir, file_pattern % split_name)
+    if not file_pattern:
+        file_pattern = _FILE_PATTERN
+    file_pattern = os.path.join(dataset_dir, file_pattern % split_name)
 
-  # Allowing None in the signature so that dataset_factory can use the default.
-  if reader is None:
-    reader = tf.TFRecordReader
+    # Allowing None in the signature so that dataset_factory can use the default.
+    if reader is None:
+        reader = tf.TFRecordReader
 
-  keys_to_features = {
-      'image/encoded': tf.FixedLenFeature((), tf.string, default_value=''),
-      'image/format': tf.FixedLenFeature((), tf.string, default_value='jpg'),
-      'image/class/label': tf.FixedLenFeature(
-          [], tf.int64, default_value=tf.zeros([], dtype=tf.int64)),
-  }
+    keys_to_features = {
+        'image/encoded':
+        tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/format':
+        tf.FixedLenFeature((), tf.string, default_value='jpg'),
+        'image/class/label':
+        tf.FixedLenFeature(
+            [], tf.int64, default_value=tf.zeros([], dtype=tf.int64)),
+    }
 
-  items_to_handlers = {
-      'image': slim.tfexample_decoder.Image(),
-      'label': slim.tfexample_decoder.Tensor('image/class/label'),
-  }
+    items_to_handlers = {
+        'image': slim.tfexample_decoder.Image(),
+        'label': slim.tfexample_decoder.Tensor('image/class/label'),
+    }
 
-  decoder = slim.tfexample_decoder.TFExampleDecoder(
-      keys_to_features, items_to_handlers)
+    decoder = slim.tfexample_decoder.TFExampleDecoder(keys_to_features,
+                                                      items_to_handlers)
 
-  labels_to_names = None
-  if dataset_utils.has_labels(dataset_dir):
-    labels_to_names = dataset_utils.read_label_file(dataset_dir)
+    labels_to_names = None
+    if dataset_utils.has_labels(dataset_dir):
+        labels_to_names = dataset_utils.read_label_file(dataset_dir)
 
-  return slim.dataset.Dataset(
-      data_sources=file_pattern,
-      reader=reader,
-      decoder=decoder,
-      num_samples=split_to_sizes[split_name],
-      items_to_descriptions=_ITEMS_TO_DESCRIPTIONS,
-      num_classes=_NUM_CLASSES,
-      labels_to_names=labels_to_names)
+    return slim.dataset.Dataset(
+        data_sources=file_pattern,
+        reader=reader,
+        decoder=decoder,
+        num_samples=split_to_sizes[split_name],
+        items_to_descriptions=_ITEMS_TO_DESCRIPTIONS,
+        num_classes=_NUM_CLASSES,
+        labels_to_names=labels_to_names)
