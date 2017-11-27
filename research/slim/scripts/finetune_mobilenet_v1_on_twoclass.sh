@@ -3,8 +3,8 @@ set -ex
 die() { echo "$@" 1>&2 ; exit 1; }
 
 MODEL_NAME=mobilenet_v1
-if [[ -f scripts/finetune_mobilenet_v1_on_okutama.shrc ]]; then
-    source scripts/finetune_mobilenet_v1_on_okutama.shrc
+if [[ -f scripts/finetune_mobilenet_v1_on_twoclass.shrc ]]; then
+    source scripts/finetune_mobilenet_v1_on_twoclass.shrc
 fi
 
 : "${TRAIN_LAST_LAYER:?Need to set TRAIN_LAST_LAYER non-empty}"
