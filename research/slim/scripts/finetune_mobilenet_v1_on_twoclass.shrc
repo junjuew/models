@@ -1,0 +1,9 @@
+TRAIN_LAST_LAYER=true
+TRAIN_ALL_LAYER=true
+PRETRAINED_CHECKPOINT_DIR="/home/junjuew/mobisys18/pretrained_models/mobilenet_ckpt"
+DATASET_DIR="/home/junjuew/mobisys18/scripts/okutama/experiments/classification_3840_2160_down_224_224_annotations"
+LAST_LAYER_MAX_STEP=5000
+ALL_LAYER_MAX_STEP=10000
+LAST_LAYER_TRAIN_DIR="/home/junjuew/mobisys18/scripts/okutama/experiments/classification_3840_2160_down_224_224_annotations/logs_last_layer_only_5000"
+ALL_LAYER_TRAIN_DIR="/home/junjuew/mobisys18/scripts/okutama/experiments/classification_3840_2160_down_224_224_annotations/logs_all_layers_10000"
+MAX_GPU_MEMORY_USAGE=1.0

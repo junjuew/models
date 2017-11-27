@@ -84,7 +84,28 @@ def _get_tile(image_id, dataset_dir, tile_width, tile_height):
     image_dir = os.path.join(dataset_dir, 'photos')
     assert os.path.exists(image_dir)
 
-    video_id, frame_id, grid_x, grid_y = image_id.split('_')
+    image_id_contents = image_id.split('_')
+    if len(image_id_contents) == 5:
+        tf.logging.info(
+            ('I guessed you are using Stanford dataset. '
+             'If not, please double-check')
+        )
+        video_id = '_'.join([image_id_contents[0], image_id_contents[1]])
+        (frame_id, grid_x,
+         grid_y) = (image_id_contents[2], image_id_contents[3],
+                    image_id_contents[4])
+    elif len(image_id_contents) == 4:
+        tf.logging.info(
+            ('I guessed you are using Okutama dataset. '
+             'If not, please double-check')
+        )
+        video_id, frame_id, grid_x, grid_y = (image_id_contents[0],
+                                              image_id_contents[1],
+                                              image_id_contents[2],
+                                              image_id_contents[3])
+    else:
+        raise ValueError(
+            'Not recognized image_id {} from annotations.'.format(image_id))
     frame_id = int(frame_id)
     grid_x = int(grid_x)
     grid_y = int(grid_y)
