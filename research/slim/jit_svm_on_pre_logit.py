@@ -16,11 +16,9 @@ def visualize(pre_logit_files):
 
 def train(pre_logit_files,
           save_model_path=None,
-          eval_every_iters=10,
-          n_iters=50,
           test_ratio=0.1,
           split_pos=False,
-          downsample_train=None,
+          downsample_train=1.0,
           shuffle=False,
           verbose=False):
     """
@@ -56,10 +54,7 @@ def train(pre_logit_files,
         print "Split train/validation according to positive ratio."
         pos_inds = np.where(y == 1)[0]
         test_split_ind = pos_inds[-int(len(pos_inds) * test_ratio)]
-        if downsample_train is not None:
-            train_split_ind = pos_inds[int(len(pos_inds) * (1.0-test_ratio) * downsample_train)]
-        else:
-            train_split_ind = test_split_ind
+        train_split_ind = pos_inds[int(len(pos_inds) * (1.0 - test_ratio) * downsample_train)]
         assert train_split_ind <= test_split_ind
         X_train, y_train = X[:train_split_ind, :], y[:train_split_ind]
         X_validation, y_validation = X[test_split_ind:, :], y[test_split_ind:]
@@ -68,7 +63,6 @@ def train(pre_logit_files,
     print "Train set: %d / %d" % (y_train.shape[0], np.count_nonzero(y_train))
     print "Validation set: %d / %d" % (y_validation.shape[0], np.count_nonzero(y_validation))
 
-    accuracies = []
     clf = SGDClassifier(random_state=42,
                         verbose=verbose,
                         class_weight='balanced')
@@ -85,9 +79,6 @@ def train(pre_logit_files,
     #         print "%f\t%f" % (train_acc, valid_acc)
 
     print "Finished training"
-
-    print [t[1] for t in accuracies]
-    print [t[2] for t in accuracies]
 
     print "Final train accuracy: %f" % clf.score(X_train, y_train)
     print "Final validation accuracy: %f " % clf.score(X_validation, y_validation)
@@ -110,44 +101,6 @@ def eval(pre_logit_files,
 
     score = clf.score(X_eval, y_eval)
     return score
-
-
-def retrain(pre_logit_files,
-            checkpoint_path,
-            save_model_path=None,
-            eval_every_iters=20,
-            n_iter=10):
-    X_new, y_new, _ = load_pre_logit_Xy(pre_logit_files)
-    X_train, X_validation, y_train, y_validation = \
-        train_test_split(X_new, y_new, test_size=0.1, random_state=42)
-
-    print X_train[:3], y_train[:13]
-
-    clf = pickle.load(open(checkpoint_path, 'rb'))
-
-    before_train_acc = clf.score(X_train, y_train)
-    before_valid_acc = clf.score(X_validation, y_validation)
-
-    accuracies = []
-    for i in range(n_iter):
-        clf.partial_fit(X_train, y_train)
-        if i % eval_every_iters == 0:
-            train_acc = clf.score(X_train, y_train)
-            valid_acc = clf.score(X_validation, y_validation)
-            accuracies.append((i, train_acc, valid_acc))
-            print "Train acc = %f,\nvalidation acc = %f" % (train_acc, valid_acc)
-
-    print [t[1] for t in accuracies]
-    print [t[2] for t in accuracies]
-
-    print "train accuracy before retrain: ", before_train_acc
-    print "validation accuracy before retrain: ", before_valid_acc
-    print "Final train accuracy after retrain: ", clf.score(X_train, y_train)
-    print "Final validation accuracy after retrain: ", clf.score(X_validation, y_validation)
-
-    if save_model_path is not None:
-        print "saving model to " + save_model_path
-        pickle.dump(clf, open(save_model_path, 'wb'))
 
 
 if __name__ == '__main__':
