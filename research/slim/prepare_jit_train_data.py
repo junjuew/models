@@ -9,15 +9,12 @@ import itertools
 import numpy as np
 import redis
 import os
+from matplotlib import pyplot as plt
 
-#
-# Examples usage:
-# python prepare_jit_train_data.py make_tp_fp_dataset
-#   --redis-host 172.17.0.10
-#   --file_glob "/home/zf/opt/drone-scalable-search/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/2_more_test/tile_test_by_label/*/bookstore_video0_video*"
-#   --output_file /home/zf/opt/drone-scalable-search/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/2_more_test/bookstore_video0_tp_fp.p
-#
 from sklearn.metrics import confusion_matrix
+from sklearn.utils import resample
+
+np.random.seed(42)
 
 
 def _split_imageid(image_id):
@@ -35,7 +32,25 @@ def _combine_imageid(*args):
 
 def _increment_frame_id(image_id):
     video_id, frame_id, grid_x, grid_y = _split_imageid(image_id)
-    return _combine_imageid(video_id, frame_id+1, grid_x, grid_y)
+    return _combine_imageid(video_id, frame_id + 1, grid_x, grid_y)
+
+
+def visualize_tp_fp(tile_classification_annotation_file,
+                    tile_test_inference_file,
+                    image_dir,
+                    n_samples=5):
+    ground_truth, _, predictions, sorted_imageids = _parse_tile_annotation_and_inference_pre_logit(
+        tile_classification_annotation_file, tile_test_inference_file)
+    fp_indexes = np.nonzero(np.logical_and(ground_truth == 0, predictions == 1))
+    tp_indexes = np.nonzero(np.logical_and(ground_truth == 1, predictions == 1))
+    # only take n_samples from each
+    fp_sample_index = resample(fp_indexes, n_samples=n_samples)
+    tp_sample_index = resample(tp_indexes, n_samples=n_samples)
+
+    print(fp_sample_index, tp_sample_index)
+
+    fp_imageids = itemgetter(*fp_sample_index)(sorted_imageids)
+    tp_imageids = itemgetter(*tp_sample_index)(sorted_imageids)
 
 
 def make_tp_fp_dataset_2(tile_classification_annotation_file,
@@ -45,37 +60,19 @@ def make_tp_fp_dataset_2(tile_classification_annotation_file,
                          ):
     """
 
-    :param tile_classification_annotation_file: gives ground truth of a video (imageid -> True/False)
-    :param tile_test_inference_file: gives inference result of a video (imageid -> list[1026])
+    :param tile_classification_annotation_file: gives ground truth of one video (imageid -> True/False)
+    :param tile_test_inference_file: gives inference result of one or more videos (imageid -> list[1026])
     :param output_file:
     :param max_samples:
     :param over_sample_ratio:
     :return:
     """
-    tile_ground_truth = pickle.load(open(tile_classification_annotation_file))
-    print("Loaded {} results from {} ".format(len(tile_ground_truth), tile_classification_annotation_file))
+    ground_truth, pre_logit, predictions, sorted_imageids = _parse_tile_annotation_and_inference_pre_logit(
+        tile_classification_annotation_file, tile_test_inference_file)
 
-    tile_inference_result_and_pre_logit = pickle.load(open(tile_test_inference_file))
-    print("Loadecd {} results from {}".format(len(tile_inference_result_and_pre_logit), tile_test_inference_file))
-
-    # XXX bring the 1-off frame ids in sync!
-    tile_ground_truth = dict((_increment_frame_id(k), 1 if v else 0)
-                             for k, v in tile_ground_truth.iteritems())
-    tile_pre_logit = dict((k, np.array(v[2:])) for k, v in tile_inference_result_and_pre_logit.iteritems())
-    tile_predictions = dict((k, np.argmax(np.array(v[:2]))) for k, v in tile_inference_result_and_pre_logit.iteritems())
-
-    # for x in [tile_ground_truth, tile_pre_logit, tile_predictions]:
-    #     print(str(x.items()[:5000:1000]))
-
-    assert set(tile_ground_truth.keys()) == set(tile_predictions.keys())
-    sorted_imageids = sorted(tile_ground_truth.keys())  # hopefully sorts by timestamps
-    # print("Intersect {} imageids".format(len(sorted_imageids)))
-    print("Sorted {} imageids".format(len(sorted_imageids)))
-    ground_truth = np.array([tile_ground_truth[id] for id in sorted_imageids])
-    predictions = np.array([tile_predictions[id] for id in sorted_imageids])
-    pre_logit = np.stack([tile_pre_logit[id] for id in sorted_imageids])
-
-    print(ground_truth.shape, predictions.shape, pre_logit.shape)
+    assert pre_logit.shape[1] == 1024, pre_logit.shape
+    assert ground_truth.shape == predictions.shape, "ground: {}\npredictions: {}".format(ground_truth.shape,
+                                                                                         predictions.shape)
 
     print("Confusion matrix")
     cm = confusion_matrix(y_true=ground_truth, y_pred=predictions)
@@ -111,10 +108,32 @@ def make_tp_fp_dataset_2(tile_classification_annotation_file,
 
     print X_out.shape, y_out.shape
 
+    imageids_out = itemgetter(*(np.nonzero(sample_mask)[0].tolist()))(sorted_imageids)
+    print("Verify image ids:")
+    print("\n".join(imageids_out[::10]))
+
     if output_file is not None:
-        dct = {'X': X_out, 'y': y_out, 'image_ids': itemgetter(*(np.nonzero(sample_mask)[0].tolist()))(sorted_imageids)}
+        dct = {'X': X_out, 'y': y_out, 'image_ids': imageids_out}
         pickle.dump(dct,
                     open(output_file, 'wb'))
+
+
+def _parse_tile_annotation_and_inference_pre_logit(tile_classification_annotation_file, tile_test_inference_file):
+    tile_ground_truth = pickle.load(open(tile_classification_annotation_file))
+    print("Loaded {} results from {} ".format(len(tile_ground_truth), tile_classification_annotation_file))
+    # XXX bring the 1-off frame ids in sync!
+    # and transform True/False to 1/0
+    tile_ground_truth = dict((_increment_frame_id(k), 1 if v else 0)
+                             for k, v in tile_ground_truth.iteritems())
+    tile_inference_result_and_pre_logit = pickle.load(open(tile_test_inference_file))
+    print("Loaded {} results from {}".format(len(tile_inference_result_and_pre_logit), tile_test_inference_file))
+    imageids = tile_ground_truth.keys()
+    assert set(imageids).issubset(set(tile_inference_result_and_pre_logit.keys())), "Probably due to 1-off image ids?"
+    sorted_imageids = sorted(imageids, key=_split_imageid)  # hopefully sorts by timestamps
+    ground_truth = np.array([tile_ground_truth[id] for id in sorted_imageids])
+    predictions = np.array([np.argmax(tile_inference_result_and_pre_logit[id][:2]) for id in sorted_imageids])
+    pre_logit = np.stack([np.array(tile_inference_result_and_pre_logit[id][2:]) for id in sorted_imageids])
+    return ground_truth, pre_logit, predictions, sorted_imageids
 
 
 def make_tp_fp_dataset(file_glob, redis_host, output_file=None, max_samples=3000, over_sample_ratio=20):

@@ -84,17 +84,21 @@ def _get_tile(image_id, dataset_dir, tile_width, tile_height):
     image_dir = os.path.join(dataset_dir, 'photos')
     assert os.path.exists(image_dir)
 
-    video_id, frame_id, grid_x, grid_y = image_id.split('_')
+    # print("getting tile for", image_id)
+    tokens = image_id.split('_')
+    video_id, frame_id, grid_x, grid_y = '_'.join(tokens[:-3]), tokens[-3], tokens[-2], tokens[-1]
     frame_id = int(frame_id)
     grid_x = int(grid_x)
     grid_y = int(grid_y)
     base_image_path = os.path.join(image_dir, video_id, '{:010d}'.format(
         int(frame_id + 1))) + '.jpg'
+    print("reading image from: ", base_image_path)
     im = cv2.imread(base_image_path)
     if im is None:
         raise ValueError('Failed to load image: '.format(base_image_path))
     tile_x = grid_x * tile_width
     tile_y = grid_y * tile_height
+    # print(im.shape, tile_x, tile_y, tile_width, tile_height)
     current_tile = im[tile_y:tile_y + tile_height, tile_x:tile_x + tile_width]
     ret, encoded_tile = cv2.imencode('.jpg', current_tile)
     if not ret:
