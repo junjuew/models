@@ -81,24 +81,25 @@ def _get_dataset_filename(dataset_dir, split_name, shard_id):
 
 
 def _get_tile(image_id, dataset_dir, tile_width, tile_height):
-    image_dir = os.path.join(dataset_dir, 'photos')
+    image_dir = os.path.join(dataset_dir, 'photos', os.path.dirname(image_id))
     assert os.path.exists(image_dir)
+    image_id = os.path.basename(image_id)
 
     image_id_contents = image_id.split('_')
     if len(image_id_contents) == 5:
-        tf.logging.info(
-            ('I guessed you are using Stanford dataset. '
-             'If not, please double-check')
-        )
+        # tf.logging.info(
+        #     ('I guessed you are using Stanford dataset. '
+        #      'If not, please double-check')
+        # )
         video_id = '_'.join([image_id_contents[0], image_id_contents[1]])
         (frame_id, grid_x,
          grid_y) = (image_id_contents[2], image_id_contents[3],
                     image_id_contents[4])
     elif len(image_id_contents) == 4:
-        tf.logging.info(
-            ('I guessed you are using Okutama dataset. '
-             'If not, please double-check')
-        )
+        # tf.logging.info(
+        #     ('I guessed you are using Okutama dataset. '
+        #      'If not, please double-check')
+        # )
         video_id, frame_id, grid_x, grid_y = (image_id_contents[0],
                                               image_id_contents[1],
                                               image_id_contents[2],

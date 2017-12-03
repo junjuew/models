@@ -49,9 +49,9 @@ if [[ "$TRAIN_LAST_LAYER" == "true" ]]; then
            --max_gpu_memory_fraction=${MAX_GPU_MEMORY_USAGE} \
            --learning_rate=0.001 \
            --learning_rate_decay_type=fixed \
-           --save_interval_secs=60 \
-           --save_summaries_secs=60 \
-           --log_every_n_steps=10 \
+           --save_interval_secs=180 \
+           --save_summaries_secs=180 \
+           --log_every_n_steps=100 \
            --optimizer=rmsprop \
            --weight_decay=0.00004 2>&1 | tee ${LAST_LAYER_TRAIN_DIR}/train_last_layer.log
 fi
@@ -70,9 +70,9 @@ if [[ "$TRAIN_ALL_LAYER" == "true" ]]; then
            --batch_size=32 \
            --learning_rate=0.001 \
            --learning_rate_decay_type=fixed \
-           --save_interval_secs=60 \
-           --save_summaries_secs=60 \
-           --log_every_n_steps=10 \
+           --save_interval_secs=180 \
+           --save_summaries_secs=180 \
+           --log_every_n_steps=100 \
            --optimizer=rmsprop \
            --weight_decay=0.00004 2>&1 | tee ${ALL_LAYER_TRAIN_DIR}/train_all_layer.log
 fi
