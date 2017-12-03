@@ -4,6 +4,7 @@ r"""Converts Munich data to TFRecords of TF-Example protos.
 from __future__ import absolute_import, division, print_function
 
 import cPickle as pickle
+import collections
 import cv2
 import json
 import math
@@ -138,7 +139,7 @@ def _convert_dataset(split_name, image_ids, image_id_to_label,
     assert split_name in _SPLIT_NAMES
 
     num_per_shard = int(math.ceil(len(image_ids) / float(_NUM_SHARDS)))
-
+    class_to_num = collections.defaultdict(int)
     with tf.Graph().as_default():
         image_reader = ImageReader()
 
@@ -167,6 +168,7 @@ def _convert_dataset(split_name, image_ids, image_id_to_label,
 
                         class_name = image_id_to_label[image_ids[i]]
                         class_id = class_names_to_ids[class_name]
+                        class_to_num[class_id] += 1
 
                         example = dataset_utils.image_to_tfexample(
                             image_data, b'jpg', height, width, class_id)
@@ -174,6 +176,7 @@ def _convert_dataset(split_name, image_ids, image_id_to_label,
 
     sys.stdout.write('\n')
     sys.stdout.flush()
+    return class_to_num
 
 
 def _dataset_exists(dataset_dir):
@@ -231,28 +234,39 @@ def run(dataset_dir, mode, tile_width, tile_height, validation_percentage=0.1):
         _num_validation = int(len(image_ids) * validation_percentage)
         train_ids = image_ids[_num_validation:]
         validation_ids = image_ids[:_num_validation]
-        _convert_dataset('train', train_ids, image_id_to_label,
-                         class_names_to_ids, dataset_dir, tile_width,
-                         tile_height)
-        _convert_dataset('validation', validation_ids, image_id_to_label,
-                         class_names_to_ids, dataset_dir, tile_width,
-                         tile_height)
-        meta_data['train'] = len(train_ids)
-        meta_data['validation'] = len(validation_ids)
+        train_class_to_num = _convert_dataset(
+            'train', train_ids, image_id_to_label, class_names_to_ids,
+            dataset_dir, tile_width, tile_height)
+        validation_class_to_num = _convert_dataset(
+            'validation', validation_ids, image_id_to_label,
+            class_names_to_ids, dataset_dir, tile_width, tile_height)
+        meta_data['train'] = {
+            'train': len(train_ids),
+            'class_to_num': train_class_to_num,
+        }
+        meta_data['validation'] = {
+            'validation': len(validation_ids),
+            'class_to_num': validation_class_to_num,
+        }
+        assert sum(train_class_to_num.values()) == len(train_ids)
+        assert sum(validation_class_to_num.values()) == len(validation_ids)
     elif mode == 'test':
         print('create test files')
         test_ids = image_ids[:]
-        _convert_dataset('test', test_ids, image_id_to_label,
-                         class_names_to_ids, dataset_dir, tile_width,
-                         tile_height)
-        meta_data['test'] = len(test_ids)
-
+        test_class_to_num = _convert_dataset(
+            'test', test_ids, image_id_to_label, class_names_to_ids,
+            dataset_dir, tile_width, tile_height)
+        meta_data['test'] = {
+            'test': len(test_ids),
+            'class_to_num': test_class_to_num,
+        }
+        assert sum(test_class_to_num.values()) == len(test_ids)
     for split_name, value in meta_data.items():
         # record meta data file, unique to twoclass dataset
         meta_file_path = os.path.join(dataset_dir, '{}.{}'.format(
             split_name, _META_FILE_NAME_SUFFIX))
         with open(meta_file_path, 'w') as f:
-            json.dump({split_name: value}, f)
+            json.dump(value, f)
 
     # Finally, write the labels file:
     labels_to_class_names = dict(zip(range(len(class_names)), class_names))

@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import numpy as np
 
 from datasets import dataset_factory
 from deployment import model_deploy
@@ -456,6 +457,14 @@ def main(_):
         ####################
         # Define the model #
         ####################
+        class_weights = np.array([
+            1.0 / dataset.class_to_num[str(i)]
+            for i in range(dataset.num_classes)
+        ])
+        class_weights = class_weights / np.sum(class_weights)
+        tf.logging.info('class to num: {}, class weights: {}'.format(
+            dataset.class_to_num, class_weights))
+
         def clone_fn(batch_queue):
             """Allows data parallelism by creating multiple clones of network_fn."""
             images, labels = batch_queue.dequeue()
@@ -471,11 +480,13 @@ def main(_):
                     label_smoothing=FLAGS.label_smoothing,
                     weights=0.4,
                     scope='aux_loss')
+            sample_weights = tf.reduce_sum(
+                tf.multiply(labels, class_weights), axis=1)
             slim.losses.softmax_cross_entropy(
                 logits,
                 labels,
                 label_smoothing=FLAGS.label_smoothing,
-                weights=1.0)
+                weights=sample_weights)
             return end_points
 
         # Gather initial summaries.

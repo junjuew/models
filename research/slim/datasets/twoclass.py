@@ -67,8 +67,10 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
                           'No {} in {}'.format(_META_FILE_NAME_SUFFIX,
                                                dataset_dir)))
     with open(meta_file_path) as f:
-        split_to_sizes = json.load(f)
-        print('find meta data split sizes: {}'.format(split_to_sizes))
+         meta_data = json.load(f)
+         class_to_num = meta_data.pop('class_to_num')
+         split_to_sizes = meta_data
+         print('find meta data split sizes: {}'.format(split_to_sizes))
 
 
 #  SPLITS_TO_SIZES = {'train': 3825, 'validation': 425, 'test': 4250}
@@ -112,4 +114,5 @@ def get_split(split_name, dataset_dir, file_pattern=None, reader=None):
         num_samples=split_to_sizes[split_name],
         items_to_descriptions=_ITEMS_TO_DESCRIPTIONS,
         num_classes=_NUM_CLASSES,
-        labels_to_names=labels_to_names)
+        labels_to_names=labels_to_names,
+        class_to_num=class_to_num)
