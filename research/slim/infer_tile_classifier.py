@@ -60,6 +60,10 @@ tf.app.flags.DEFINE_string('result_hook', 'PickleDictHook',
 
 tf.app.flags.DEFINE_string('result_file', 'inference_results.p',
                            'The file to store inference result.')
+tf.app.flags.DEFINE_string(
+    'tile_id_prefix', '',
+    'Prefix to tiled_id. Used by extra negatives to pass datasetname in. So that we can distinguish which dataset that is.'
+)
 tf.app.flags.DEFINE_integer('image_w', -1, 'input image width.')
 tf.app.flags.DEFINE_integer('image_h', -1, 'input image height.')
 tf.app.flags.DEFINE_integer('grid_w', -1, '# of tiles horizontally.')
@@ -245,7 +249,8 @@ def _get_tile_ids_from_file_path(file_path, grid_w, grid_h):
     tile_ids = []
     for grid_x in range(grid_w):
         for grid_y in range(grid_h):
-            tile_id = image_id + '_{}_{}'.format(grid_x, grid_y)
+            tile_id = FLAGS.tile_id_prefix + image_id + '_{}_{}'.format(
+                grid_x, grid_y)
             tile_ids.append(tile_id)
     assert len(tile_ids) == grid_w * grid_h
     return tile_ids
@@ -281,13 +286,10 @@ def _tf_divide_to_tiles(images_tensor):
     return tiles
 
 
-def _evaluate_batch_tf_tile(sess, file_paths, input_op,
-                            output_endpoints_op, result_hook):
+def _evaluate_batch_tf_tile(sess, file_paths, input_op, output_endpoints_op,
+                            result_hook):
     (iterator, input_op) = input_op
-    sess.run(
-        iterator.initializer, feed_dict={
-            input_op: file_paths
-        })
+    sess.run(iterator.initializer, feed_dict={input_op: file_paths})
     st = time.time()
     tile_ids = list(
         itertools.chain.from_iterable([
@@ -296,10 +298,7 @@ def _evaluate_batch_tf_tile(sess, file_paths, input_op,
             for image_path in file_paths
         ]))
 
-    outputs = sess.run(
-        output_endpoints_op, feed_dict={
-            input_op: file_paths
-        })
+    outputs = sess.run(output_endpoints_op, feed_dict={input_op: file_paths})
     # remove unnecessary dimensions
     outputs = [np.squeeze(output) for output in outputs]
     # concatenate them together, so that outputs[0] is the
